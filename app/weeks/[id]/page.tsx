@@ -1,0 +1,698 @@
+'use client';
+
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { 
+  Calendar, 
+  ShoppingCart, 
+  Package, 
+  Save, 
+  Download,
+  ArrowLeft,
+  Plus,
+  Trash2,
+  FileText,
+  Pencil,
+  X
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+
+type WeekPlan = {
+  id: number;
+  start_date: string;
+  status: 'Draft' | 'Published' | 'Closed';
+};
+
+type DayPlan = {
+  id: number;
+  week_plan_id: number;
+  date: string;
+  menu: string | null;
+  rsvp: number;
+};
+
+type Item = {
+  id: number;
+  name: string;
+  unit: string;
+  vendor_id: number | null;
+  vendor_name: string | null;
+  on_hand: number;
+};
+
+type WeeklyRequirement = {
+  id?: number;
+  week_plan_id: number;
+  item_id: number;
+  required_qty: number;
+  to_buy_override: number | null;
+  item?: Item;
+};
+
+type ShoppingListItem = {
+  item_id: number;
+  item_name: string;
+  unit: string;
+  vendor_name: string | null;
+  on_hand: number;
+  required_qty: number;
+  to_buy: number;
+};
+
+export default function WeekPlanPage() {
+  const params = useParams();
+  const router = useRouter();
+  const weekId = parseInt(params.id as string);
+
+  const [weekPlan, setWeekPlan] = useState<WeekPlan | null>(null);
+  const [dayPlans, setDayPlans] = useState<DayPlan[]>([]);
+  const [requirements, setRequirements] = useState<WeeklyRequirement[]>([]);
+  const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>([]);
+  const [items, setItems] = useState<Item[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [includeOnHand, setIncludeOnHand] = useState(true);
+  const [includeRequired, setIncludeRequired] = useState(true);
+  const [isEditingMenu, setIsEditingMenu] = useState(false);
+  const [originalDayPlans, setOriginalDayPlans] = useState<DayPlan[]>([]);
+
+  const fetchWeekData = useCallback(async () => {
+    try {
+      const [weekResponse, dayPlansResponse, requirementsResponse, shoppingResponse] = await Promise.all([
+        fetch(`/api/weeks/${weekId}`),
+        fetch(`/api/weeks/${weekId}/day-plans`),
+        fetch(`/api/weeks/${weekId}/requirements`),
+        fetch(`/api/weeks/${weekId}/shopping-list`)
+      ]);
+
+      if (weekResponse.ok) {
+        const weekData = await weekResponse.json();
+        setWeekPlan(weekData);
+      }
+
+      if (dayPlansResponse.ok) {
+        const dayPlansData = await dayPlansResponse.json();
+        setDayPlans(dayPlansData);
+        setOriginalDayPlans(dayPlansData);
+      }
+
+      if (requirementsResponse.ok) {
+        const requirementsData = await requirementsResponse.json();
+        setRequirements(requirementsData);
+      }
+
+      if (shoppingResponse.ok) {
+        const shoppingData = await shoppingResponse.json();
+        setShoppingList(shoppingData);
+      }
+    } catch (error) {
+      console.error('Error fetching week data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [weekId]);
+
+  useEffect(() => {
+    if (weekId) {
+      fetchWeekData();
+      fetchItems();
+    }
+  }, [weekId, fetchWeekData]);
+
+  const fetchItems = async () => {
+    try {
+      const response = await fetch('/api/items');
+      if (response.ok) {
+        const data = await response.json();
+        setItems(data);
+      }
+    } catch (error) {
+      console.error('Error fetching items:', error);
+    }
+  };
+
+  const saveDayPlans = async () => {
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/weeks/${weekId}/day-plans`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          days: dayPlans.map((d) => ({
+            date: d.date,
+            menu: d.menu ?? null,
+            rsvp: d.rsvp,
+          })),
+        }),
+      });
+
+      if (response.ok) {
+        // Success feedback could be added here
+      }
+    } catch (error) {
+      console.error('Error saving day plans:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEditMenuClick = () => {
+    setOriginalDayPlans(dayPlans);
+    setIsEditingMenu(true);
+  };
+
+  const handleCancelMenuEdit = () => {
+    setDayPlans(originalDayPlans);
+    setIsEditingMenu(false);
+  };
+
+  const handleSaveMenu = async () => {
+    await saveDayPlans();
+    setOriginalDayPlans(dayPlans);
+    setIsEditingMenu(false);
+  };
+
+  const saveRequirements = async () => {
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/weeks/${weekId}/requirements`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: requirements.map((r) => ({
+            item_id: r.item_id,
+            required_qty: r.required_qty,
+            to_buy_override: r.to_buy_override ?? null,
+          })),
+        }),
+      });
+
+      if (response.ok) {
+        // Refresh shopping list
+        const shoppingResponse = await fetch(`/api/weeks/${weekId}/shopping-list`);
+        if (shoppingResponse.ok) {
+          const shoppingData = await shoppingResponse.json();
+          setShoppingList(shoppingData);
+        }
+      }
+    } catch (error) {
+      console.error('Error saving requirements:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateDayPlan = (index: number, field: 'menu' | 'rsvp', value: string | number) => {
+    const updated = [...dayPlans];
+    updated[index] = { ...updated[index], [field]: value };
+    setDayPlans(updated);
+  };
+
+  const addRequirement = () => {
+    if (items.length === 0) {
+      window.alert('No items found. Please add items in Inventory first.');
+      return;
+    }
+    const newReq: WeeklyRequirement = {
+      week_plan_id: weekId,
+      item_id: items[0]?.id || 0,
+      required_qty: 0,
+      to_buy_override: null,
+    };
+    setRequirements([...requirements, newReq]);
+  };
+
+  const updateRequirement = (index: number, field: keyof WeeklyRequirement, value: number | null) => {
+    const updated = [...requirements];
+    updated[index] = { ...updated[index], [field]: value };
+    setRequirements(updated);
+  };
+
+  const removeRequirement = (index: number) => {
+    const updated = requirements.filter((_, i) => i !== index);
+    setRequirements(updated);
+  };
+
+  const groupShoppingByVendor = () => {
+    const map = new Map<string, typeof shoppingList>();
+    for (const row of shoppingList) {
+      const vendor = row.vendor_name || 'No Vendor';
+      const arr = map.get(vendor) || [];
+      arr.push(row);
+      map.set(vendor, arr);
+    }
+    return map;
+  };
+
+  const exportShoppingList = () => {
+    const byVendor = groupShoppingByVendor();
+    const lines: string[] = [];
+    const header: string[] = ['Vendor', 'Item'];
+    if (includeOnHand) header.push('On Hand');
+    if (includeRequired) header.push('Required');
+    header.push('To Buy');
+    lines.push(header.join(','));
+    const vendors = Array.from(byVendor.keys()).sort((a, b) => a.localeCompare(b));
+    for (const vendor of vendors) {
+      const rows = byVendor.get(vendor) || [];
+      rows.sort((a, b) => a.item_name.localeCompare(b.item_name));
+      for (const r of rows) {
+        const row: string[] = [vendor, r.item_name];
+        if (includeOnHand) row.push(`${r.on_hand} ${r.unit}`);
+        if (includeRequired) row.push(`${r.required_qty} ${r.unit}`);
+        row.push(`${r.to_buy} ${r.unit}`);
+        lines.push(row.join(','));
+      }
+    }
+    const csv = lines.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `shopping-list-week-${weekId}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportShoppingListPdf = () => {
+    const byVendor = groupShoppingByVendor();
+    const vendors = Array.from(byVendor.keys()).sort((a, b) => a.localeCompare(b));
+    if (!weekPlan) return;
+    const win = window.open('', '_blank');
+    if (!win) return;
+    const styles = `
+      <style>
+        body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Noto Sans, 'Apple Color Emoji', 'Segoe UI Emoji'; padding: 24px; }
+        h1 { font-size: 20px; margin: 0 0 16px; }
+        .meta { font-size: 12px; color: #6b7280; margin: 0 0 16px; }
+        h2 { font-size: 16px; margin: 24px 0 8px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+        th, td { border: 1px solid #e5e7eb; padding: 6px 8px; font-size: 12px; }
+        th { background: #f9fafb; text-align: left; }
+      </style>
+    `;
+    const range = getWeekRange(weekPlan.start_date);
+    const title = `FMB Shopping List | Week of ${range}`;
+    let html = `<html><head><title>${title}</title>${styles}</head><body>`;
+    const generatedAt = new Date().toLocaleString();
+    html += `<h1>${title}</h1>`;
+    html += `<div class="meta">Generated: ${generatedAt}</div>`;
+    for (const vendor of vendors) {
+      const rows = (byVendor.get(vendor) || []).slice().sort((a, b) => a.item_name.localeCompare(b.item_name));
+      html += `<h2>${vendor}</h2>`;
+      html += '<table><thead><tr>';
+      html += '<th>Item</th>';
+      if (includeOnHand) html += '<th>On Hand</th>';
+      if (includeRequired) html += '<th>Required</th>';
+      html += '<th>To Buy</th>';
+      html += '</tr></thead><tbody>';
+      for (const r of rows) {
+        html += '<tr>';
+        html += `<td>${r.item_name}</td>`;
+        if (includeOnHand) html += `<td>${r.on_hand} ${r.unit}</td>`;
+        if (includeRequired) html += `<td>${r.required_qty} ${r.unit}</td>`;
+        html += `<td>${r.to_buy} ${r.unit}</td>`;
+        html += '</tr>';
+      }
+      html += '</tbody></table>';
+    }
+    html += '</body></html>';
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => {
+      win.print();
+    }, 250);
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const dayPlanColumns = useMemo<ColumnDef<DayPlan>[]>(() => [
+    {
+      header: 'Date',
+      accessorFn: (row) => formatDate(row.date),
+    },
+    {
+      header: 'Menu',
+      accessorKey: 'menu',
+      cell: ({ getValue }) => {
+        const value = getValue<string | null>();
+        return value ? value : '';
+      },
+    },
+    {
+      header: 'RSVP',
+      accessorKey: 'rsvp',
+    },
+  ], [dayPlans]);
+
+  const dayPlanTable = useReactTable({
+    data: dayPlans,
+    columns: dayPlanColumns,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
+  const getWeekRange = (startDate: string) => {
+    const start = new Date(startDate);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    
+    return `${start.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric' 
+    })} - ${end.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric',
+      year: 'numeric'
+    })}`;
+  };
+
+  if (loading) {
+    return (
+      <div className="p-8">
+        <div className="text-center">
+          <p className="text-gray-500">Loading week plan...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!weekPlan) {
+    return (
+      <div className="p-8">
+        <div className="text-center">
+          <p className="text-red-500">Week plan not found</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-8 max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="mb-8">
+        <div className="flex items-center gap-4 mb-4">
+          <button
+            onClick={() => router.push('/')}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Week of {getWeekRange(weekPlan.start_date)}
+            </h1>
+            <p className="text-gray-600">Status: {weekPlan.status}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-8">
+        {/* Menu & RSVP Section */
+        }
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-blue-600" />
+              <h2 className="text-lg font-semibold text-gray-900">Menu & RSVP</h2>
+            </div>
+            {!isEditingMenu ? (
+              <Button onClick={handleEditMenuClick} size="sm" icon={Pencil}>
+                Edit
+              </Button>
+            ) : (
+              <div className="flex gap-2">
+                <Button onClick={handleSaveMenu} disabled={saving} icon={Save} size="sm">
+                  {saving ? 'Saving...' : 'Save'}
+                </Button>
+                <Button onClick={handleCancelMenuEdit} variant="secondary" size="sm" icon={X}>
+                  Cancel
+                </Button>
+              </div>
+            )}
+          </div>
+          
+          <div className="p-6">
+            {!isEditingMenu ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    {dayPlanTable.getHeaderGroups().map((headerGroup) => (
+                      <tr key={headerGroup.id}>
+                        {headerGroup.headers.map((header) => (
+                          <th key={header.id} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                          </th>
+                        ))}
+                      </tr>
+                    ))}
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {dayPlanTable.getRowModel().rows.map((row, rIdx) => (
+                      <tr key={row.id} className={rIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        {row.getVisibleCells().map((cell) => (
+                          <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {dayPlans.map((day, index) => (
+                  <div key={day.id} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg">
+                    <div className="font-medium text-gray-900">
+                      {formatDate(day.date)}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Menu
+                      </label>
+                      <textarea
+                        value={day.menu || ''}
+                        onChange={(e) => updateDayPlan(index, 'menu', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        rows={2}
+                        placeholder="Enter menu for this day..."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        RSVP Count
+                      </label>
+                      <input
+                        type="number"
+                        value={day.rsvp}
+                        onChange={(e) => updateDayPlan(index, 'rsvp', parseInt(e.target.value) || 0)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        min="0"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Weekly Requirements Section */}
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Package className="h-5 w-5 text-green-600" />
+              <h2 className="text-lg font-semibold text-gray-900">Weekly Requirements</h2>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={addRequirement} variant="success" size="sm" icon={Plus}>
+                Add Item
+              </Button>
+              <Button onClick={saveRequirements} disabled={saving} size="sm" icon={Save}>
+                {saving ? 'Saving...' : 'Save'}
+              </Button>
+            </div>
+          </div>
+          
+          <div className="p-6">
+            <div className="space-y-4">
+              {requirements.map((req, index) => (
+                <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border border-gray-200 rounded-lg">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Item
+                    </label>
+                    <select
+                      value={req.item_id}
+                      onChange={(e) => updateRequirement(index, 'item_id', parseInt(e.target.value))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {items.map(item => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Unit
+                    </label>
+                    <input
+                      type="text"
+                      value={items.find(i => i.id === req.item_id)?.unit || ''}
+                      disabled
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Required Qty
+                    </label>
+                    <input
+                      type="number"
+                      value={req.required_qty}
+                      onChange={(e) => updateRequirement(index, 'required_qty', parseFloat(e.target.value) || 0)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      min="0"
+                      step="0.1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      To Buy Override
+                    </label>
+                    <input
+                      type="number"
+                      value={req.to_buy_override || ''}
+                      onChange={(e) => updateRequirement(index, 'to_buy_override', e.target.value ? parseFloat(e.target.value) : null)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      min="0"
+                      step="0.1"
+                      placeholder="Auto"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <button
+                      onClick={() => removeRequirement(index)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+              
+              {requirements.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  <Package className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p>No requirements added yet</p>
+                  <p className="text-sm">Click &ldquo;Add Item&ldquo; to get started</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Shopping List Section */}
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShoppingCart className="h-5 w-5 text-purple-600" />
+              <h2 className="text-lg font-semibold text-gray-900">Shopping List</h2>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="hidden md:flex items-center gap-3 text-sm text-gray-700">
+                <label className="inline-flex items-center gap-2">
+                  <input type="checkbox" checked={includeOnHand} onChange={(e) => setIncludeOnHand(e.target.checked)} />
+                  Include On Hand
+                </label>
+                <label className="inline-flex items-center gap-2">
+                  <input type="checkbox" checked={includeRequired} onChange={(e) => setIncludeRequired(e.target.checked)} />
+                  Include Required
+                </label>
+              </div>
+              <Button onClick={exportShoppingList} variant="purple" size="sm" icon={Download}>
+                Export CSV
+              </Button>
+              <Button onClick={exportShoppingListPdf} variant="secondary" size="sm" icon={FileText}>
+                Export PDF
+              </Button>
+            </div>
+          </div>
+          
+          <div className="p-6">
+            {shoppingList.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Vendor
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Item
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Unit
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        On Hand
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Required
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        To Buy
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {shoppingList.map((item, index) => (
+                      <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {item.vendor_name || 'No Vendor'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {item.item_name}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {item.unit}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {item.on_hand}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {item.required_qty}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {item.to_buy > 0 ? item.to_buy : '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <ShoppingCart className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                <p>No shopping list items</p>
+                <p className="text-sm">Add weekly requirements to generate shopping list</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
