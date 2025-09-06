@@ -40,6 +40,7 @@ export const upsertRequirementsSchema = z.object({
         item_id: z.number().int().positive(),
         required_qty: z.number(),
         to_buy_override: z.number().nullable().optional(),
+        notes: z.string().optional().nullable(),
       })
     )
     .min(1),

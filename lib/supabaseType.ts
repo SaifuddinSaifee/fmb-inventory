@@ -172,6 +172,7 @@ export type Database = {
           required_qty: number
           to_buy_override: number | null
           week_plan_id: number
+          notes: string | null
         }
         Insert: {
           id?: never
@@ -179,6 +180,7 @@ export type Database = {
           required_qty: number
           to_buy_override?: number | null
           week_plan_id: number
+          notes?: string | null
         }
         Update: {
           id?: never
@@ -186,6 +188,7 @@ export type Database = {
           required_qty?: number
           to_buy_override?: number | null
           week_plan_id?: number
+          notes?: string | null
         }
         Relationships: [
           {

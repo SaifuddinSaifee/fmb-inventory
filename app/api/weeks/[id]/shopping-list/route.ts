@@ -10,7 +10,7 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
   // Fetch requirements for this week with item and vendor info
   const { data: reqs, error } = await supabase
     .from("weekly_requirements")
-    .select("item_id, required_qty, to_buy_override, items(name, unit, vendor_id, vendors(name))")
+    .select("item_id, required_qty, to_buy_override, notes, items(name, unit, vendor_id, vendors(name))")
     .eq("week_plan_id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -18,6 +18,7 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
     item_id: number;
     required_qty: number;
     to_buy_override: number | null;
+    notes: string | null;
     items?: { name?: string | null; unit?: string | null; vendors?: { name?: string | null } | null } | null;
   };
 
@@ -46,6 +47,7 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
       on_hand: onHand,
       required_qty: required,
       to_buy: toBuy,
+      notes: r.notes ?? null,
     };
   });
 

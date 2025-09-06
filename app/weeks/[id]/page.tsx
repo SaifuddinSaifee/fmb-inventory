@@ -47,6 +47,7 @@ type WeeklyRequirement = {
   item_id: number;
   required_qty: number;
   to_buy_override: number | null;
+  notes?: string | null;
   item?: Item;
 };
 
@@ -58,6 +59,7 @@ type ShoppingListItem = {
   on_hand: number;
   required_qty: number;
   to_buy: number;
+  notes?: string | null;
 };
 
 export default function WeekPlanPage() {
@@ -184,6 +186,7 @@ export default function WeekPlanPage() {
             item_id: r.item_id,
             required_qty: r.required_qty,
             to_buy_override: r.to_buy_override ?? null,
+            notes: r.notes ?? null,
           })),
         }),
       });
@@ -219,11 +222,12 @@ export default function WeekPlanPage() {
       item_id: items[0]?.id || 0,
       required_qty: 0,
       to_buy_override: null,
+      notes: '',
     };
     setRequirements([...requirements, newReq]);
   };
 
-  const updateRequirement = (index: number, field: keyof WeeklyRequirement, value: number | null) => {
+  const updateRequirement = (index: number, field: keyof WeeklyRequirement, value: any) => {
     const updated = [...requirements];
     updated[index] = { ...updated[index], [field]: value };
     setRequirements(updated);
@@ -252,16 +256,19 @@ export default function WeekPlanPage() {
     if (includeOnHand) header.push('On Hand');
     if (includeRequired) header.push('Required');
     header.push('To Buy');
+    header.push('Notes');
     lines.push(header.join(','));
     const vendors = Array.from(byVendor.keys()).sort((a, b) => a.localeCompare(b));
     for (const vendor of vendors) {
       const rows = byVendor.get(vendor) || [];
       rows.sort((a, b) => a.item_name.localeCompare(b.item_name));
       for (const r of rows) {
+        const notes = (r as any).notes ? String((r as any).notes).replace(/\n/g, ' ') : '';
         const row: string[] = [vendor, r.item_name];
         if (includeOnHand) row.push(`${r.on_hand} ${r.unit}`);
         if (includeRequired) row.push(`${r.required_qty} ${r.unit}`);
         row.push(`${r.to_buy} ${r.unit}`);
+        row.push(notes);
         lines.push(row.join(','));
       }
     }
@@ -306,6 +313,7 @@ export default function WeekPlanPage() {
       if (includeOnHand) html += '<th>On Hand</th>';
       if (includeRequired) html += '<th>Required</th>';
       html += '<th>To Buy</th>';
+      html += '<th>Notes</th>';
       html += '</tr></thead><tbody>';
       for (const r of rows) {
         html += '<tr>';
@@ -313,6 +321,7 @@ export default function WeekPlanPage() {
         if (includeOnHand) html += `<td>${r.on_hand} ${r.unit}</td>`;
         if (includeRequired) html += `<td>${r.required_qty} ${r.unit}</td>`;
         html += `<td>${r.to_buy} ${r.unit}</td>`;
+        html += `<td>${(r as any).notes ?? ''}</td>`;
         html += '</tr>';
       }
       html += '</tbody></table>';
@@ -527,7 +536,7 @@ export default function WeekPlanPage() {
           <div className="p-6">
             <div className="space-y-4">
               {requirements.map((req, index) => (
-                <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border border-gray-200 rounded-lg">
+                <div key={index} className="grid grid-cols-1 md:grid-cols-6 gap-4 p-4 border border-gray-200 rounded-lg">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Item
@@ -580,6 +589,18 @@ export default function WeekPlanPage() {
                       min="0"
                       step="0.1"
                       placeholder="Auto"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Notes
+                    </label>
+                    <input
+                      type="text"
+                      value={req.notes || ''}
+                      onChange={(e) => updateRequirement(index, 'notes', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Optional notes"
                     />
                   </div>
                   <div className="flex items-end">
@@ -655,6 +676,9 @@ export default function WeekPlanPage() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         To Buy
                       </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Notes
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -677,6 +701,9 @@ export default function WeekPlanPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           {item.to_buy > 0 ? item.to_buy : '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {(item as any).notes ?? ''}
                         </td>
                       </tr>
                     ))}

@@ -28,7 +28,7 @@ export async function GET(
   const { data, error } = await supabase
     .from("weekly_requirements")
     .select(
-      "id, week_plan_id, item_id, required_qty, to_buy_override, items(name, unit, vendor_id, vendors(name))"
+      "id, week_plan_id, item_id, required_qty, to_buy_override, notes, items(name, unit, vendor_id, vendors(name))"
     )
     .eq("week_plan_id", id)
     .order("id", { ascending: true })
@@ -43,6 +43,7 @@ export async function GET(
     item_id: r.item_id,
     required_qty: r.required_qty,
     to_buy_override: r.to_buy_override,
+    notes: r.notes ?? null,
     item: r.items
       ? {
           id: r.item_id,
@@ -76,6 +77,7 @@ export async function PUT(
     item_id: r.item_id,
     required_qty: r.required_qty,
     to_buy_override: r.to_buy_override ?? null,
+    notes: r.notes ?? null,
   }));
 
   const { error } = await supabaseAdmin
