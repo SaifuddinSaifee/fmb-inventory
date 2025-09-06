@@ -1,13 +1,14 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { Plus, Calendar, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { Plus, Calendar, Clock, CheckCircle, XCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 type WeekPlan = {
   id: number;
   start_date: string;
-  status: 'Draft' | 'Published' | 'Closed';
+  status: "Draft" | "Published" | "Closed";
 };
 
 export default function Dashboard() {
@@ -21,13 +22,13 @@ export default function Dashboard() {
 
   const fetchWeeks = async () => {
     try {
-      const response = await fetch('/api/weeks');
+      const response = await fetch("/api/weeks");
       if (response.ok) {
         const data = await response.json();
         setWeeks(data);
       }
     } catch (error) {
-      console.error('Error fetching weeks:', error);
+      console.error("Error fetching weeks:", error);
     } finally {
       setLoading(false);
     }
@@ -41,12 +42,12 @@ export default function Dashboard() {
       const nextMonday = new Date(today);
       const daysUntilMonday = (8 - today.getDay()) % 7;
       nextMonday.setDate(today.getDate() + daysUntilMonday);
-      
-      const response = await fetch('/api/weeks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+
+      const response = await fetch("/api/weeks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          start_date: nextMonday.toISOString().split('T')[0]
+          start_date: nextMonday.toISOString().split("T")[0],
         }),
       });
 
@@ -55,7 +56,7 @@ export default function Dashboard() {
         setWeeks([newWeek, ...weeks]);
       }
     } catch (error) {
-      console.error('Error creating week:', error);
+      console.error("Error creating week:", error);
     } finally {
       setCreating(false);
     }
@@ -65,24 +66,24 @@ export default function Dashboard() {
     const start = new Date(startDate);
     const end = new Date(start);
     end.setDate(start.getDate() + 6);
-    
-    return `${start.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric' 
-    })} - ${end.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric'
+
+    return `${start.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    })} - ${end.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     })}`;
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'Draft':
+      case "Draft":
         return <Clock className="h-4 w-4 text-yellow-500" />;
-      case 'Published':
+      case "Published":
         return <Calendar className="h-4 w-4 text-blue-500" />;
-      case 'Closed':
+      case "Closed":
         return <CheckCircle className="h-4 w-4 text-green-500" />;
       default:
         return <XCircle className="h-4 w-4 text-gray-400" />;
@@ -91,14 +92,14 @@ export default function Dashboard() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Draft':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'Published':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'Closed':
-        return 'bg-green-100 text-green-800 border-green-200';
+      case "Draft":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "Published":
+        return "bg-blue-100 text-blue-800 border-blue-200";
+      case "Closed":
+        return "bg-green-100 text-green-800 border-green-200";
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+        return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
 
@@ -114,22 +115,19 @@ export default function Dashboard() {
 
       {/* New Week Button */}
       <div className="mb-8">
-        <button
-          onClick={createNewWeek}
-          disabled={creating}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          <Plus className="h-5 w-5" />
-          {creating ? 'Creating...' : 'New Week'}
-        </button>
+        <Button onClick={createNewWeek} disabled={creating} icon={Plus}>
+          {creating ? "Creating..." : "New Week"}
+        </Button>
       </div>
 
       {/* Week Plans List */}
       <div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Recent Week Plans</h2>
+          <h2 className="text-lg font-semibold text-gray-900">
+            Recent Week Plans
+          </h2>
         </div>
-        
+
         {loading ? (
           <div className="p-8 text-center text-gray-500">
             Loading week plans...
@@ -163,7 +161,11 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(week.status)}`}>
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(
+                        week.status
+                      )}`}
+                    >
                       {week.status}
                     </span>
                   </div>
@@ -183,11 +185,13 @@ export default function Dashboard() {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-500">Total Weeks</p>
-              <p className="text-2xl font-semibold text-gray-900">{weeks.length}</p>
+              <p className="text-2xl font-semibold text-gray-900">
+                {weeks.length}
+              </p>
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center">
             <div className="flex-shrink-0">
@@ -196,12 +200,12 @@ export default function Dashboard() {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-500">Draft Plans</p>
               <p className="text-2xl font-semibold text-gray-900">
-                {weeks.filter(w => w.status === 'Draft').length}
+                {weeks.filter((w) => w.status === "Draft").length}
               </p>
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center">
             <div className="flex-shrink-0">
@@ -210,7 +214,7 @@ export default function Dashboard() {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-500">Completed</p>
               <p className="text-2xl font-semibold text-gray-900">
-                {weeks.filter(w => w.status === 'Closed').length}
+                {weeks.filter((w) => w.status === "Closed").length}
               </p>
             </div>
           </div>
