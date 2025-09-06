@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Package, Plus, Edit3, Save, X, Trash2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import EditableText from "@/components/editableText";
 
 type Vendor = {
   id: number;
@@ -31,14 +32,19 @@ export default function InventoryPage() {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [editingItem, setEditingItem] = useState<number | null>(null);
-  const [editingQuantity, setEditingQuantity] = useState<number>(0);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newItem, setNewItem] = useState<NewItem>({
     name: "",
     unit: "kg",
     vendor_id: null,
   });
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState<{
+    id: number | null;
+    name: string;
+    unit: "kg" | "g" | "L" | "ml" | "pcs";
+    vendor_id: number | null;
+  }>({ id: null, name: "", unit: "kg", vendor_id: null });
 
   useEffect(() => {
     fetchData();
@@ -74,31 +80,20 @@ export default function InventoryPage() {
         item.vendor_name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const startEditing = (item: Item) => {
-    setEditingItem(item.id);
-    setEditingQuantity(item.on_hand);
-  };
-
-  const cancelEditing = () => {
-    setEditingItem(null);
-    setEditingQuantity(0);
-  };
-
-  const saveQuantity = async (itemId: number) => {
+  const saveQuantity = async (itemId: number, nextQuantity: number) => {
     try {
       const response = await fetch(`/api/inventory/${itemId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ on_hand: editingQuantity }),
+        body: JSON.stringify({ on_hand: nextQuantity }),
       });
 
       if (response.ok) {
-        setItems(
-          items.map((item) =>
-            item.id === itemId ? { ...item, on_hand: editingQuantity } : item
+        setItems((prev) =>
+          prev.map((item) =>
+            item.id === itemId ? { ...item, on_hand: nextQuantity } : item
           )
         );
-        setEditingItem(null);
       }
     } catch (error) {
       console.error("Error updating quantity:", error);
@@ -123,6 +118,52 @@ export default function InventoryPage() {
       }
     } catch (error) {
       console.error("Error adding item:", error);
+    }
+  };
+
+  const openEditModal = (item: Item) => {
+    setEditForm({
+      id: item.id,
+      name: item.name,
+      unit: item.unit,
+      vendor_id: item.vendor_id,
+    });
+    setShowEditModal(true);
+  };
+
+  const saveItemDetails = async () => {
+    if (!editForm.id) return;
+    try {
+      const response = await fetch(`/api/items/${editForm.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editForm.name,
+          unit: editForm.unit,
+          vendor_id: editForm.vendor_id,
+        }),
+      });
+      if (response.ok) {
+        // Update local state for snappy UX
+        setItems((prev) =>
+          prev.map((it) =>
+            it.id === editForm.id
+              ? {
+                  ...it,
+                  name: editForm.name,
+                  unit: editForm.unit,
+                  vendor_id: editForm.vendor_id,
+                  vendor_name:
+                    vendors.find((v) => v.id === editForm.vendor_id)?.name ??
+                    null,
+                }
+              : it
+          )
+        );
+        setShowEditModal(false);
+      }
+    } catch (error) {
+      console.error("Error updating item:", error);
     }
   };
 
@@ -346,22 +387,22 @@ export default function InventoryPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Item Name
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Unit
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Vendor
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     On Hand
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -370,70 +411,57 @@ export default function InventoryPage() {
                 {filteredItems.map((item, index) => (
                   <tr
                     key={item.id}
-                    className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                    className={
+                      (index % 2 === 0 ? "bg-white" : "bg-gray-50") +
+                      " hover:bg-gray-50 transition-colors"
+                    }
                   >
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-3 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
                         {item.name}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-3 whitespace-nowrap">
                       <div className="text-sm text-gray-500">{item.unit}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-3 whitespace-nowrap">
                       <div className="text-sm text-gray-500">
                         {item.vendor_name || "No Vendor"}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {editingItem === item.id ? (
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            value={editingQuantity}
-                            onChange={(e) =>
-                              setEditingQuantity(
-                                parseFloat(e.target.value) || 0
-                              )
-                            }
-                            className="w-20 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            min="0"
-                            step="0.1"
-                          />
-                          <button
-                            onClick={() => saveQuantity(item.id)}
-                            className="p-1 text-green-600 hover:bg-green-50 rounded"
-                          >
-                            <Save className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={cancelEditing}
-                            className="p-1 text-red-600 hover:bg-red-50 rounded"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-gray-900">
-                            {item.on_hand}
-                          </span>
-                          <button
-                            onClick={() => startEditing(item)}
-                            className="p-1 text-blue-600 hover:bg-blue-50 rounded"
-                          >
-                            <Edit3 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      )}
+                    <td className="px-6 py-3 whitespace-nowrap">
+                      <EditableText
+                        value={item.on_hand}
+                        type="number"
+                        min={0}
+                        step={0.1}
+                        className="text-sm font-medium text-gray-900"
+                        inputClassName="w-20 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        displayFormatter={(val) => <span>{val}</span>}
+                        onSave={async (val) => {
+                          const numeric = typeof val === "number" ? val : parseFloat(String(val));
+                          const next = Number.isFinite(numeric) && numeric >= 0 ? numeric : 0;
+                          await saveQuantity(item.id, next);
+                        }}
+                      />
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <button
-                        onClick={() => deleteItem(item.id)}
-                        className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                    <td className="px-6 py-3 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => openEditModal(item)}
+                          className="p-1 text-slate-700 hover:bg-slate-100 rounded transition-colors"
+                          title="Edit item details"
+                        >
+                          <Edit3 className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => deleteItem(item.id)}
+                          className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                          title="Delete item"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -442,6 +470,107 @@ export default function InventoryPage() {
           </div>
         )}
       </div>
+      {showEditModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
+          onClick={() => setShowEditModal(false)}
+        >
+          <div
+            className="w-full max-w-lg bg-white rounded-lg shadow-lg border p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900">
+                  Edit Item
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Update name, unit, or vendor
+                </p>
+              </div>
+              <button
+                className="p-1 text-gray-500 hover:text-gray-700"
+                onClick={() => setShowEditModal(false)}
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Item Name
+                </label>
+                <input
+                  type="text"
+                  value={editForm.name}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, name: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter item name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Unit
+                </label>
+                <select
+                  value={editForm.unit}
+                  onChange={(e) =>
+                    setEditForm({
+                      ...editForm,
+                      unit: e.target.value as "kg" | "g" | "L" | "ml" | "pcs",
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {getUnitOptions().map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Vendor
+                </label>
+                <select
+                  value={editForm.vendor_id || ""}
+                  onChange={(e) =>
+                    setEditForm({
+                      ...editForm,
+                      vendor_id: e.target.value
+                        ? parseInt(e.target.value)
+                        : null,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">No Vendor</option>
+                  {vendors.map((vendor) => (
+                    <option key={vendor.id} value={vendor.id}>
+                      {vendor.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => setShowEditModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button icon={Save} onClick={saveItemDetails}>
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
