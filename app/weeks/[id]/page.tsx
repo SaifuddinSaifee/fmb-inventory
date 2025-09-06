@@ -1,28 +1,33 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { 
-  Calendar, 
-  ShoppingCart, 
-  Package, 
-  Save, 
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useParams, useRouter } from "next/navigation";
+import {
+  Calendar,
+  ShoppingCart,
+  Package,
+  Save,
   Download,
   ArrowLeft,
   Plus,
   Trash2,
   FileText,
   Pencil,
-  X
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
-import type { UnitAbbreviation } from '@/lib/units';
+  X,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
+import type { UnitAbbreviation } from "@/lib/units";
 
 type WeekPlan = {
   id: number;
   start_date: string;
-  status: 'Draft' | 'Published' | 'Closed';
+  status: "Draft" | "Published" | "Closed";
 };
 
 type DayPlan = {
@@ -45,12 +50,13 @@ type Item = {
 type WeeklyRequirement = {
   id?: number;
   week_plan_id: number;
-  item_id: number;
+  item_id: number | null;
   required_qty: number;
-  to_buy_override: number | null;
   notes?: string | null;
   item?: Item;
 };
+
+type EditableRequirementKey = "item_id" | "required_qty" | "notes";
 
 type ShoppingListItem = {
   item_id: number;
@@ -71,6 +77,9 @@ export default function WeekPlanPage() {
   const [weekPlan, setWeekPlan] = useState<WeekPlan | null>(null);
   const [dayPlans, setDayPlans] = useState<DayPlan[]>([]);
   const [requirements, setRequirements] = useState<WeeklyRequirement[]>([]);
+  const [originalRequirements, setOriginalRequirements] = useState<
+    WeeklyRequirement[]
+  >([]);
   const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,11 +91,16 @@ export default function WeekPlanPage() {
 
   const fetchWeekData = useCallback(async () => {
     try {
-      const [weekResponse, dayPlansResponse, requirementsResponse, shoppingResponse] = await Promise.all([
+      const [
+        weekResponse,
+        dayPlansResponse,
+        requirementsResponse,
+        shoppingResponse,
+      ] = await Promise.all([
         fetch(`/api/weeks/${weekId}`),
         fetch(`/api/weeks/${weekId}/day-plans`),
         fetch(`/api/weeks/${weekId}/requirements`),
-        fetch(`/api/weeks/${weekId}/shopping-list`)
+        fetch(`/api/weeks/${weekId}/shopping-list`),
       ]);
 
       if (weekResponse.ok) {
@@ -101,8 +115,15 @@ export default function WeekPlanPage() {
       }
 
       if (requirementsResponse.ok) {
-        const requirementsData = await requirementsResponse.json();
-        setRequirements(requirementsData);
+        const requirementsData: WeeklyRequirement[] =
+          await requirementsResponse.json();
+        const sortedByNewest = requirementsData.slice().sort((a, b) => {
+          const aId = typeof a.id === "number" ? a.id : -Infinity;
+          const bId = typeof b.id === "number" ? b.id : -Infinity;
+          return bId - aId;
+        });
+        setRequirements(sortedByNewest);
+        setOriginalRequirements(sortedByNewest);
       }
 
       if (shoppingResponse.ok) {
@@ -110,7 +131,7 @@ export default function WeekPlanPage() {
         setShoppingList(shoppingData);
       }
     } catch (error) {
-      console.error('Error fetching week data:', error);
+      console.error("Error fetching week data:", error);
     } finally {
       setLoading(false);
     }
@@ -125,13 +146,13 @@ export default function WeekPlanPage() {
 
   const fetchItems = async () => {
     try {
-      const response = await fetch('/api/items');
+      const response = await fetch("/api/items");
       if (response.ok) {
         const data = await response.json();
         setItems(data);
       }
     } catch (error) {
-      console.error('Error fetching items:', error);
+      console.error("Error fetching items:", error);
     }
   };
 
@@ -139,8 +160,8 @@ export default function WeekPlanPage() {
     setSaving(true);
     try {
       const response = await fetch(`/api/weeks/${weekId}/day-plans`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           days: dayPlans.map((d) => ({
             date: d.date,
@@ -154,7 +175,7 @@ export default function WeekPlanPage() {
         // Success feedback could be added here
       }
     } catch (error) {
-      console.error('Error saving day plans:', error);
+      console.error("Error saving day plans:", error);
     } finally {
       setSaving(false);
     }
@@ -177,37 +198,59 @@ export default function WeekPlanPage() {
   };
 
   const saveRequirements = async () => {
+    if (hasUnselectedRequirement) return;
     setSaving(true);
     try {
       const response = await fetch(`/api/weeks/${weekId}/requirements`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           items: requirements.map((r) => ({
             item_id: r.item_id,
             required_qty: r.required_qty,
-            to_buy_override: r.to_buy_override ?? null,
             notes: r.notes ?? null,
           })),
         }),
       });
 
       if (response.ok) {
+        // Update original state to match current state
+        setOriginalRequirements([...requirements]);
+
+        // Re-fetch requirements to ensure client state matches server (including deletions)
+        const requirementsResponse = await fetch(`/api/weeks/${weekId}/requirements`);
+        if (requirementsResponse.ok) {
+          const reqData: WeeklyRequirement[] = await requirementsResponse.json();
+          const sortedByNewest = reqData.slice().sort((a, b) => {
+            const aId = typeof a.id === 'number' ? a.id : -Infinity;
+            const bId = typeof b.id === 'number' ? b.id : -Infinity;
+            return bId - aId;
+          });
+          setRequirements(sortedByNewest);
+          setOriginalRequirements(sortedByNewest);
+        }
+        
         // Refresh shopping list
-        const shoppingResponse = await fetch(`/api/weeks/${weekId}/shopping-list`);
+        const shoppingResponse = await fetch(
+          `/api/weeks/${weekId}/shopping-list`
+        );
         if (shoppingResponse.ok) {
           const shoppingData = await shoppingResponse.json();
           setShoppingList(shoppingData);
         }
       }
     } catch (error) {
-      console.error('Error saving requirements:', error);
+      console.error("Error saving requirements:", error);
     } finally {
       setSaving(false);
     }
   };
 
-  const updateDayPlan = (index: number, field: 'menu' | 'rsvp', value: string | number) => {
+  const updateDayPlan = (
+    index: number,
+    field: "menu" | "rsvp",
+    value: string | number
+  ) => {
     const updated = [...dayPlans];
     updated[index] = { ...updated[index], [field]: value };
     setDayPlans(updated);
@@ -215,24 +258,90 @@ export default function WeekPlanPage() {
 
   const addRequirement = () => {
     if (items.length === 0) {
-      window.alert('No items found. Please add items in Inventory first.');
+      window.alert("No items found. Please add items in Inventory first.");
       return;
     }
     const newReq: WeeklyRequirement = {
       week_plan_id: weekId,
-      item_id: items[0]?.id || 0,
+      item_id: null,
       required_qty: 0,
-      to_buy_override: null,
-      notes: '',
+      notes: "",
     };
-    setRequirements([...requirements, newReq]);
+    setRequirements([newReq, ...requirements]);
   };
 
-  const updateRequirement = (index: number, field: keyof WeeklyRequirement, value: any) => {
+  const updateRequirement = <K extends EditableRequirementKey>(
+    index: number,
+    field: K,
+    value: WeeklyRequirement[K]
+  ) => {
     const updated = [...requirements];
     updated[index] = { ...updated[index], [field]: value };
     setRequirements(updated);
   };
+
+  const hasUnselectedRequirement = useMemo(() => {
+    return requirements.some((r) => r.item_id == null);
+  }, [requirements]);
+
+  const getChangedRequirements = useCallback(() => {
+    const changed = new Set<number>();
+
+    // Build a lookup of originals by id for stable comparisons
+    const originalById = new Map<number, WeeklyRequirement>();
+    for (const orig of originalRequirements) {
+      if (typeof orig.id === 'number') originalById.set(orig.id, orig);
+    }
+
+    requirements.forEach((req, index) => {
+      if (typeof req.id === 'number') {
+        const original = originalById.get(req.id);
+        if (!original) {
+          // Should not normally happen, but treat as changed if mismatch
+          changed.add(index);
+          return;
+        }
+        if (
+          req.item_id !== original.item_id ||
+          req.required_qty !== original.required_qty ||
+          req.notes !== original.notes
+        ) {
+          changed.add(index);
+        }
+      } else {
+        // New, unsaved row (no id). If there is an original at the same index
+        // that also has no id and matches by value, do not mark as changed.
+        const originalAtIndex = originalRequirements[index];
+        if (
+          !originalAtIndex ||
+          typeof originalAtIndex.id === 'number' ||
+          originalAtIndex.item_id !== req.item_id ||
+          originalAtIndex.required_qty !== req.required_qty ||
+          originalAtIndex.notes !== req.notes
+        ) {
+          changed.add(index);
+        }
+      }
+    });
+
+    return changed;
+  }, [requirements, originalRequirements]);
+
+  const hasDeletions = useMemo(() => {
+    // Any original id that no longer exists in current implies a deletion
+    const remaining = new Set<number>();
+    for (const orig of originalRequirements) {
+      if (typeof orig.id === 'number') remaining.add(orig.id);
+    }
+    for (const req of requirements) {
+      if (typeof req.id === 'number') remaining.delete(req.id);
+    }
+    return remaining.size > 0;
+  }, [requirements, originalRequirements]);
+
+  const hasUnsavedChanges = useMemo(() => {
+    return getChangedRequirements().size > 0 || hasDeletions;
+  }, [getChangedRequirements, hasDeletions]);
 
   const removeRequirement = (index: number) => {
     const updated = requirements.filter((_, i) => i !== index);
@@ -242,7 +351,7 @@ export default function WeekPlanPage() {
   const groupShoppingByVendor = () => {
     const map = new Map<string, typeof shoppingList>();
     for (const row of shoppingList) {
-      const vendor = row.vendor_name || 'No Vendor';
+      const vendor = row.vendor_name || "No Vendor";
       const arr = map.get(vendor) || [];
       arr.push(row);
       map.set(vendor, arr);
@@ -253,30 +362,32 @@ export default function WeekPlanPage() {
   const exportShoppingList = () => {
     const byVendor = groupShoppingByVendor();
     const lines: string[] = [];
-    const header: string[] = ['Vendor', 'Item'];
-    if (includeOnHand) header.push('On Hand');
-    if (includeRequired) header.push('Required');
-    header.push('To Buy');
-    header.push('Notes');
-    lines.push(header.join(','));
-    const vendors = Array.from(byVendor.keys()).sort((a, b) => a.localeCompare(b));
+    const header: string[] = ["Vendor", "Item"];
+    if (includeOnHand) header.push("On Hand");
+    if (includeRequired) header.push("Required");
+    header.push("To Buy");
+    header.push("Notes");
+    lines.push(header.join(","));
+    const vendors = Array.from(byVendor.keys()).sort((a, b) =>
+      a.localeCompare(b)
+    );
     for (const vendor of vendors) {
       const rows = byVendor.get(vendor) || [];
       rows.sort((a, b) => a.item_name.localeCompare(b.item_name));
       for (const r of rows) {
-        const notes = (r as any).notes ? String((r as any).notes).replace(/\n/g, ' ') : '';
+        const notes = r.notes ? String(r.notes).replace(/\n/g, " ") : "";
         const row: string[] = [vendor, r.item_name];
         if (includeOnHand) row.push(`${r.on_hand} ${r.unit}`);
         if (includeRequired) row.push(`${r.required_qty} ${r.unit}`);
         row.push(`${r.to_buy} ${r.unit}`);
         row.push(notes);
-        lines.push(row.join(','));
+        lines.push(row.join(","));
       }
     }
-    const csv = lines.join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const csv = lines.join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `shopping-list-week-${weekId}.csv`;
     a.click();
@@ -285,9 +396,11 @@ export default function WeekPlanPage() {
 
   const exportShoppingListPdf = () => {
     const byVendor = groupShoppingByVendor();
-    const vendors = Array.from(byVendor.keys()).sort((a, b) => a.localeCompare(b));
+    const vendors = Array.from(byVendor.keys()).sort((a, b) =>
+      a.localeCompare(b)
+    );
     if (!weekPlan) return;
-    const win = window.open('', '_blank');
+    const win = window.open("", "_blank");
     if (!win) return;
     const styles = `
       <style>
@@ -307,27 +420,29 @@ export default function WeekPlanPage() {
     html += `<h1>${title}</h1>`;
     html += `<div class="meta">Generated: ${generatedAt}</div>`;
     for (const vendor of vendors) {
-      const rows = (byVendor.get(vendor) || []).slice().sort((a, b) => a.item_name.localeCompare(b.item_name));
+      const rows = (byVendor.get(vendor) || [])
+        .slice()
+        .sort((a, b) => a.item_name.localeCompare(b.item_name));
       html += `<h2>${vendor}</h2>`;
-      html += '<table><thead><tr>';
-      html += '<th>Item</th>';
-      if (includeOnHand) html += '<th>On Hand</th>';
-      if (includeRequired) html += '<th>Required</th>';
-      html += '<th>To Buy</th>';
-      html += '<th>Notes</th>';
-      html += '</tr></thead><tbody>';
+      html += "<table><thead><tr>";
+      html += "<th>Item</th>";
+      if (includeOnHand) html += "<th>On Hand</th>";
+      if (includeRequired) html += "<th>Required</th>";
+      html += "<th>To Buy</th>";
+      html += "<th>Notes</th>";
+      html += "</tr></thead><tbody>";
       for (const r of rows) {
-        html += '<tr>';
+        html += "<tr>";
         html += `<td>${r.item_name}</td>`;
         if (includeOnHand) html += `<td>${r.on_hand} ${r.unit}</td>`;
         if (includeRequired) html += `<td>${r.required_qty} ${r.unit}</td>`;
         html += `<td>${r.to_buy} ${r.unit}</td>`;
-        html += `<td>${(r as any).notes ?? ''}</td>`;
-        html += '</tr>';
+        html += `<td>${r.notes ?? ""}</td>`;
+        html += "</tr>";
       }
-      html += '</tbody></table>';
+      html += "</tbody></table>";
     }
-    html += '</body></html>';
+    html += "</body></html>";
     win.document.open();
     win.document.write(html);
     win.document.close();
@@ -339,31 +454,34 @@ export default function WeekPlanPage() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'long',
-      month: 'short',
-      day: 'numeric'
+    return date.toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "short",
+      day: "numeric",
     });
   };
 
-  const dayPlanColumns = useMemo<ColumnDef<DayPlan>[]>(() => [
-    {
-      header: 'Date',
-      accessorFn: (row) => formatDate(row.date),
-    },
-    {
-      header: 'Menu',
-      accessorKey: 'menu',
-      cell: ({ getValue }) => {
-        const value = getValue<string | null>();
-        return value ? value : '';
+  const dayPlanColumns = useMemo<ColumnDef<DayPlan>[]>(
+    () => [
+      {
+        header: "Date",
+        accessorFn: (row) => formatDate(row.date),
       },
-    },
-    {
-      header: 'RSVP',
-      accessorKey: 'rsvp',
-    },
-  ], [dayPlans]);
+      {
+        header: "Menu",
+        accessorKey: "menu",
+        cell: ({ getValue }) => {
+          const value = getValue<string | null>();
+          return value ? value : "";
+        },
+      },
+      {
+        header: "RSVP",
+        accessorKey: "rsvp",
+      },
+    ],
+    []
+  );
 
   const dayPlanTable = useReactTable({
     data: dayPlans,
@@ -375,14 +493,14 @@ export default function WeekPlanPage() {
     const start = new Date(startDate);
     const end = new Date(start);
     end.setDate(start.getDate() + 6);
-    
-    return `${start.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric' 
-    })} - ${end.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric'
+
+    return `${start.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    })} - ${end.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     })}`;
   };
 
@@ -412,7 +530,7 @@ export default function WeekPlanPage() {
       <div className="mb-8">
         <div className="flex items-center gap-4 mb-4">
           <button
-            onClick={() => router.push('/')}
+            onClick={() => router.push("/")}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -427,13 +545,14 @@ export default function WeekPlanPage() {
       </div>
 
       <div className="space-y-8">
-        {/* Menu & RSVP Section */
-        }
+        {/* Menu & RSVP Section */}
         <div className="bg-white rounded-lg shadow">
           <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Calendar className="h-5 w-5 text-blue-600" />
-              <h2 className="text-lg font-semibold text-gray-900">Menu & RSVP</h2>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Menu & RSVP
+              </h2>
             </div>
             {!isEditingMenu ? (
               <Button onClick={handleEditMenuClick} size="sm" icon={Pencil}>
@@ -441,16 +560,26 @@ export default function WeekPlanPage() {
               </Button>
             ) : (
               <div className="flex gap-2">
-                <Button onClick={handleSaveMenu} disabled={saving} icon={Save} size="sm">
-                  {saving ? 'Saving...' : 'Save'}
+                <Button
+                  onClick={handleSaveMenu}
+                  disabled={saving}
+                  icon={Save}
+                  size="sm"
+                >
+                  {saving ? "Saving..." : "Save"}
                 </Button>
-                <Button onClick={handleCancelMenuEdit} variant="secondary" size="sm" icon={X}>
+                <Button
+                  onClick={handleCancelMenuEdit}
+                  variant="secondary"
+                  size="sm"
+                  icon={X}
+                >
                   Cancel
                 </Button>
               </div>
             )}
           </div>
-          
+
           <div className="p-6">
             {!isEditingMenu ? (
               <div className="overflow-x-auto">
@@ -459,8 +588,16 @@ export default function WeekPlanPage() {
                     {dayPlanTable.getHeaderGroups().map((headerGroup) => (
                       <tr key={headerGroup.id}>
                         {headerGroup.headers.map((header) => (
-                          <th key={header.id} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                          <th
+                            key={header.id}
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                          >
+                            {header.isPlaceholder
+                              ? null
+                              : flexRender(
+                                  header.column.columnDef.header,
+                                  header.getContext()
+                                )}
                           </th>
                         ))}
                       </tr>
@@ -468,10 +605,19 @@ export default function WeekPlanPage() {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {dayPlanTable.getRowModel().rows.map((row, rIdx) => (
-                      <tr key={row.id} className={rIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <tr
+                        key={row.id}
+                        className={rIdx % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                      >
                         {row.getVisibleCells().map((cell) => (
-                          <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          <td
+                            key={cell.id}
+                            className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
+                          >
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
                           </td>
                         ))}
                       </tr>
@@ -482,7 +628,10 @@ export default function WeekPlanPage() {
             ) : (
               <div className="grid gap-4">
                 {dayPlans.map((day, index) => (
-                  <div key={day.id} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg">
+                  <div
+                    key={day.id}
+                    className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg"
+                  >
                     <div className="font-medium text-gray-900">
                       {formatDate(day.date)}
                     </div>
@@ -491,8 +640,10 @@ export default function WeekPlanPage() {
                         Menu
                       </label>
                       <textarea
-                        value={day.menu || ''}
-                        onChange={(e) => updateDayPlan(index, 'menu', e.target.value)}
+                        value={day.menu || ""}
+                        onChange={(e) =>
+                          updateDayPlan(index, "menu", e.target.value)
+                        }
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         rows={2}
                         placeholder="Enter menu for this day..."
@@ -505,7 +656,13 @@ export default function WeekPlanPage() {
                       <input
                         type="number"
                         value={day.rsvp}
-                        onChange={(e) => updateDayPlan(index, 'rsvp', parseInt(e.target.value) || 0)}
+                        onChange={(e) =>
+                          updateDayPlan(
+                            index,
+                            "rsvp",
+                            parseInt(e.target.value) || 0
+                          )
+                        }
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         min="0"
                       />
@@ -522,32 +679,64 @@ export default function WeekPlanPage() {
           <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Package className="h-5 w-5 text-green-600" />
-              <h2 className="text-lg font-semibold text-gray-900">Weekly Requirements</h2>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Weekly Requirements
+              </h2>
             </div>
             <div className="flex gap-2">
-              <Button onClick={addRequirement} variant="success" size="sm" icon={Plus}>
+              {hasUnsavedChanges && (
+                <Button
+                  onClick={saveRequirements}
+                  disabled={saving || hasUnselectedRequirement}
+                  size="sm"
+                  icon={Save}
+                >
+                  {saving ? "Saving..." : "Save Changes"}
+                </Button>
+              )}
+              <Button
+                onClick={addRequirement}
+                variant="success"
+                size="sm"
+                icon={Plus}
+                disabled={hasUnselectedRequirement}
+              >
                 Add Item
-              </Button>
-              <Button onClick={saveRequirements} disabled={saving} size="sm" icon={Save}>
-                {saving ? 'Saving...' : 'Save'}
               </Button>
             </div>
           </div>
-          
+
           <div className="p-6">
             <div className="space-y-4">
               {requirements.map((req, index) => (
-                <div key={index} className="grid grid-cols-1 md:grid-cols-6 gap-4 p-4 border border-gray-200 rounded-lg">
+                <div
+                  key={req.id || index} // Use id if available, otherwise index
+                  className={`grid grid-cols-1 md:grid-cols-6 gap-4 p-4 border rounded-lg ${
+                    getChangedRequirements().has(index) ||
+                    (typeof req.id === 'number' && !originalRequirements.some(orig => orig.id === req.id))
+                      ? "border-blue-300 bg-blue-50/50"
+                      : "border-gray-200"
+                  }`}
+                >
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Item
                     </label>
                     <select
-                      value={req.item_id}
-                      onChange={(e) => updateRequirement(index, 'item_id', parseInt(e.target.value))}
+                      value={req.item_id ?? ""}
+                      onChange={(e) =>
+                        updateRequirement(
+                          index,
+                          "item_id",
+                          e.target.value ? parseInt(e.target.value) : null
+                        )
+                      }
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      {items.map(item => (
+                      <option value="" disabled>
+                        Select an item
+                      </option>
+                      {items.map((item) => (
                         <option key={item.id} value={item.id}>
                           {item.name}
                         </option>
@@ -560,7 +749,11 @@ export default function WeekPlanPage() {
                     </label>
                     <input
                       type="text"
-                      value={items.find(i => i.id === req.item_id)?.unit || ''}
+                      value={
+                        req.item_id
+                          ? items.find((i) => i.id === req.item_id)?.unit || ""
+                          : ""
+                      }
                       disabled
                       className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
                     />
@@ -572,24 +765,16 @@ export default function WeekPlanPage() {
                     <input
                       type="number"
                       value={req.required_qty}
-                      onChange={(e) => updateRequirement(index, 'required_qty', parseFloat(e.target.value) || 0)}
+                      onChange={(e) =>
+                        updateRequirement(
+                          index,
+                          "required_qty",
+                          parseFloat(e.target.value) || 0
+                        )
+                      }
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       min="0"
                       step="0.1"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      To Buy Override
-                    </label>
-                    <input
-                      type="number"
-                      value={req.to_buy_override || ''}
-                      onChange={(e) => updateRequirement(index, 'to_buy_override', e.target.value ? parseFloat(e.target.value) : null)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      min="0"
-                      step="0.1"
-                      placeholder="Auto"
                     />
                   </div>
                   <div>
@@ -598,8 +783,10 @@ export default function WeekPlanPage() {
                     </label>
                     <input
                       type="text"
-                      value={req.notes || ''}
-                      onChange={(e) => updateRequirement(index, 'notes', e.target.value)}
+                      value={req.notes || ""}
+                      onChange={(e) =>
+                        updateRequirement(index, "notes", e.target.value)
+                      }
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Optional notes"
                     />
@@ -614,12 +801,14 @@ export default function WeekPlanPage() {
                   </div>
                 </div>
               ))}
-              
+
               {requirements.length === 0 && (
                 <div className="text-center py-8 text-gray-500">
                   <Package className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                   <p>No requirements added yet</p>
-                  <p className="text-sm">Click &ldquo;Add Item&ldquo; to get started</p>
+                  <p className="text-sm">
+                    Click &ldquo;Add Item&ldquo; to get started
+                  </p>
                 </div>
               )}
             </div>
@@ -631,28 +820,48 @@ export default function WeekPlanPage() {
           <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ShoppingCart className="h-5 w-5 text-purple-600" />
-              <h2 className="text-lg font-semibold text-gray-900">Shopping List</h2>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Shopping List
+              </h2>
             </div>
             <div className="flex items-center gap-4">
               <div className="hidden md:flex items-center gap-3 text-sm text-gray-700">
                 <label className="inline-flex items-center gap-2">
-                  <input type="checkbox" checked={includeOnHand} onChange={(e) => setIncludeOnHand(e.target.checked)} />
+                  <input
+                    type="checkbox"
+                    checked={includeOnHand}
+                    onChange={(e) => setIncludeOnHand(e.target.checked)}
+                  />
                   Include On Hand
                 </label>
                 <label className="inline-flex items-center gap-2">
-                  <input type="checkbox" checked={includeRequired} onChange={(e) => setIncludeRequired(e.target.checked)} />
+                  <input
+                    type="checkbox"
+                    checked={includeRequired}
+                    onChange={(e) => setIncludeRequired(e.target.checked)}
+                  />
                   Include Required
                 </label>
               </div>
-              <Button onClick={exportShoppingList} variant="purple" size="sm" icon={Download}>
+              <Button
+                onClick={exportShoppingList}
+                variant="purple"
+                size="sm"
+                icon={Download}
+              >
                 Export CSV
               </Button>
-              <Button onClick={exportShoppingListPdf} variant="secondary" size="sm" icon={FileText}>
+              <Button
+                onClick={exportShoppingListPdf}
+                variant="secondary"
+                size="sm"
+                icon={FileText}
+              >
                 Export PDF
               </Button>
             </div>
           </div>
-          
+
           <div className="p-6">
             {shoppingList.length > 0 ? (
               <div className="overflow-x-auto">
@@ -684,9 +893,12 @@ export default function WeekPlanPage() {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {shoppingList.map((item, index) => (
-                      <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <tr
+                        key={index}
+                        className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                      >
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {item.vendor_name || 'No Vendor'}
+                          {item.vendor_name || "No Vendor"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {item.item_name}
@@ -701,10 +913,10 @@ export default function WeekPlanPage() {
                           {item.required_qty}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {item.to_buy > 0 ? item.to_buy : '-'}
+                          {item.to_buy > 0 ? item.to_buy : "-"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {(item as any).notes ?? ''}
+                          {item.notes ?? ""}
                         </td>
                       </tr>
                     ))}
@@ -715,7 +927,9 @@ export default function WeekPlanPage() {
               <div className="text-center py-8 text-gray-500">
                 <ShoppingCart className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                 <p>No shopping list items</p>
-                <p className="text-sm">Add weekly requirements to generate shopping list</p>
+                <p className="text-sm">
+                  Add weekly requirements to generate shopping list
+                </p>
               </div>
             )}
           </div>
