@@ -2,11 +2,26 @@ import { z } from "zod";
 
 // Centralized units catalogue. Update this list to add/remove units.
 export const UNITS = [
-  { unit: "Pieces", abbreviation: "pcs" },
   { unit: "Kilograms", abbreviation: "kg" },
   { unit: "Grams", abbreviation: "g" },
+  { unit: "Milligrams", abbreviation: "mg" },
+  { unit: "Pounds", abbreviation: "lbs" },
+  { unit: "Ounces", abbreviation: "oz" },
   { unit: "Liters", abbreviation: "L" },
   { unit: "Milliliters", abbreviation: "ml" },
+  { unit: "Gallons", abbreviation: "gal" },
+  { unit: "Quarts", abbreviation: "qt" },
+  { unit: "Pints", abbreviation: "pt" },
+  { unit: "Cups", abbreviation: "cup" },
+  { unit: "Tablespoons", abbreviation: "tbsp" },
+  { unit: "Teaspoons", abbreviation: "tsp" },
+  { unit: "Bottles", abbreviation: "btl" },
+  { unit: "Cans", abbreviation: "can" },
+  { unit: "Pieces", abbreviation: "pc" },
+  { unit: "Boxes", abbreviation: "box" },
+  { unit: "Count", abbreviation: "ct" },
+  { unit: "Packs", abbreviation: "pk" },
+  { unit: "Dozen", abbreviation: "dz" },
 ] as const;
 
 export type UnitAbbreviation = (typeof UNITS)[number]["abbreviation"];
