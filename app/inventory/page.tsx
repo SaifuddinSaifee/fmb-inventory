@@ -36,7 +36,7 @@ export default function InventoryPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newItem, setNewItem] = useState<NewItem>({
     name: "",
-    unit: "" as UnitAbbreviation,
+    unit: "pcs" as UnitAbbreviation,
     vendor_id: null,
   });
   const [showEditModal, setShowEditModal] = useState(false);
@@ -45,7 +45,7 @@ export default function InventoryPage() {
     name: string;
     unit: UnitAbbreviation;
     vendor_id: number | null;
-  }>({ id: null, name: "", unit: "" as UnitAbbreviation, vendor_id: null });
+  }>({ id: null, name: "", unit: "pcs" as UnitAbbreviation, vendor_id: null });
 
   useEffect(() => {
     fetchData();
@@ -349,7 +349,7 @@ export default function InventoryPage() {
               <button
                 onClick={() => {
                   setShowAddForm(false);
-                  setNewItem({ name: "", unit: "" as UnitAbbreviation, vendor_id: null });
+                  setNewItem({ name: "", unit: "pcs" as UnitAbbreviation, vendor_id: null });
                 }}
                 className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
               >

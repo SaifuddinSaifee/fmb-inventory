@@ -67,6 +67,7 @@ CREATE TABLE public.weekly_requirements (
   item_id bigint NOT NULL,
   required_qty numeric NOT NULL,
   to_buy_override numeric,
+  notes text,
   CONSTRAINT weekly_requirements_pkey PRIMARY KEY (id),
   CONSTRAINT weekly_requirements_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.items(id),
   CONSTRAINT weekly_requirements_week_plan_id_fkey FOREIGN KEY (week_plan_id) REFERENCES public.week_plans(id)

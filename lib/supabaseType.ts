@@ -169,26 +169,26 @@ export type Database = {
         Row: {
           id: number
           item_id: number
+          notes: string | null
           required_qty: number
           to_buy_override: number | null
           week_plan_id: number
-          notes: string | null
         }
         Insert: {
           id?: never
           item_id: number
+          notes?: string | null
           required_qty: number
           to_buy_override?: number | null
           week_plan_id: number
-          notes?: string | null
         }
         Update: {
           id?: never
           item_id?: number
+          notes?: string | null
           required_qty?: number
           to_buy_override?: number | null
           week_plan_id?: number
-          notes?: string | null
         }
         Relationships: [
           {
