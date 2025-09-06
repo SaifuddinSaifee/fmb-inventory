@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { upsertItemSchema } from "@/lib/validators";
+import type { UnitAbbreviation } from "@/lib/units";
 
 export async function GET() {
   const { data: items, error } = await supabase
@@ -12,7 +13,7 @@ export async function GET() {
   type ItemRow = {
     id: number;
     name: string;
-    unit: "kg" | "g" | "L" | "ml" | "pcs";
+    unit: UnitAbbreviation;
     vendor_id: number | null;
     vendors?: { name?: string | null } | null;
   };

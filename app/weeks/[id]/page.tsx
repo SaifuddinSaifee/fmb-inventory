@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import type { UnitAbbreviation } from '@/lib/units';
 
 type WeekPlan = {
   id: number;
@@ -35,7 +36,7 @@ type DayPlan = {
 type Item = {
   id: number;
   name: string;
-  unit: string;
+  unit: UnitAbbreviation;
   vendor_id: number | null;
   vendor_name: string | null;
   on_hand: number;
@@ -54,7 +55,7 @@ type WeeklyRequirement = {
 type ShoppingListItem = {
   item_id: number;
   item_name: string;
-  unit: string;
+  unit: UnitAbbreviation;
   vendor_name: string | null;
   on_hand: number;
   required_qty: number;

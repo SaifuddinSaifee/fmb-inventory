@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { unitEnum } from "@/lib/units";
 
 const dateInputSchema = z
   .union([z.string(), z.date()])
@@ -52,13 +53,13 @@ export const updateInventorySchema = z.object({
 
 export const upsertItemSchema = z.object({
   name: z.string().min(1),
-  unit: z.enum(["kg", "g", "L", "ml", "pcs"]),
+  unit: unitEnum,
   vendor_id: z.number().int().positive().nullable().optional(),
 });
 
 export const updateItemSchema = z.object({
   name: z.string().min(1).optional(),
-  unit: z.enum(["kg", "g", "L", "ml", "pcs"]).optional(),
+  unit: unitEnum.optional(),
   vendor_id: z.number().int().positive().nullable().optional(),
 });
 
