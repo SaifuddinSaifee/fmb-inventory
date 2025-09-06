@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Plus, Store, User, MapPin, X, PackageSearch, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import type { UnitAbbreviation } from '@/lib/units';
 
 type Vendor = {
   id: number;
@@ -14,7 +15,7 @@ type Vendor = {
 type Item = {
   id: number;
   name: string;
-  unit: 'kg' | 'g' | 'L' | 'ml' | 'pcs';
+  unit: UnitAbbreviation;
   vendor_id: number | null;
   vendor_name: string | null;
   on_hand: number;

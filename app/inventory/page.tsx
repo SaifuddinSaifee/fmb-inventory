@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Package, Plus, Edit3, Save, X, Trash2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import EditableText from "@/components/editableText";
+import { getUnitOptions, type UnitAbbreviation } from "@/lib/units";
 
 type Vendor = {
   id: number;
@@ -15,7 +16,7 @@ type Vendor = {
 type Item = {
   id: number;
   name: string;
-  unit: "kg" | "g" | "L" | "ml" | "pcs";
+  unit: UnitAbbreviation;
   vendor_id: number | null;
   vendor_name: string | null;
   on_hand: number;
@@ -23,7 +24,7 @@ type Item = {
 
 type NewItem = {
   name: string;
-  unit: "kg" | "g" | "L" | "ml" | "pcs";
+  unit: UnitAbbreviation;
   vendor_id: number | null;
 };
 
@@ -35,16 +36,16 @@ export default function InventoryPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newItem, setNewItem] = useState<NewItem>({
     name: "",
-    unit: "kg",
+    unit: "" as UnitAbbreviation,
     vendor_id: null,
   });
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState<{
     id: number | null;
     name: string;
-    unit: "kg" | "g" | "L" | "ml" | "pcs";
+    unit: UnitAbbreviation;
     vendor_id: number | null;
-  }>({ id: null, name: "", unit: "kg", vendor_id: null });
+  }>({ id: null, name: "", unit: "" as UnitAbbreviation, vendor_id: null });
 
   useEffect(() => {
     fetchData();
@@ -183,13 +184,7 @@ export default function InventoryPage() {
     }
   };
 
-  const getUnitOptions = () => [
-    { value: "kg", label: "Kilograms (kg)" },
-    { value: "g", label: "Grams (g)" },
-    { value: "L", label: "Liters (L)" },
-    { value: "ml", label: "Milliliters (ml)" },
-    { value: "pcs", label: "Pieces (pcs)" },
-  ];
+  
 
   if (loading) {
     return (
@@ -354,7 +349,7 @@ export default function InventoryPage() {
               <button
                 onClick={() => {
                   setShowAddForm(false);
-                  setNewItem({ name: "", unit: "kg", vendor_id: null });
+                  setNewItem({ name: "", unit: "" as UnitAbbreviation, vendor_id: null });
                 }}
                 className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
               >

@@ -2,6 +2,7 @@ import { z } from "zod";
 
 // Centralized units catalogue. Update this list to add/remove units.
 export const UNITS = [
+  { unit: "No Unit", abbreviation: "" },
   { unit: "Kilograms", abbreviation: "kg" },
   { unit: "Grams", abbreviation: "g" },
   { unit: "Liters", abbreviation: "L" },
