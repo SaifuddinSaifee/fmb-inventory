@@ -64,7 +64,7 @@ export default function EditableText({
     return (
       <button
         type="button"
-        className={"text-left " + (className ?? "")}
+        className={"text-left cursor-pointer " + (className ?? "")}
         onClick={() => setIsEditing(true)}
         aria-label="Edit value"
       >
