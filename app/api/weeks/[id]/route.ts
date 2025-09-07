@@ -36,3 +36,31 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
 }
 
 
+export async function DELETE(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { id: idStr } = await context.params;
+  const id = Number(idStr);
+  if (!Number.isFinite(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+
+  // Delete child rows first to emulate ON DELETE CASCADE behavior
+  const { error: reqDelErr } = await supabaseAdmin
+    .from("weekly_requirements")
+    .delete()
+    .eq("week_plan_id", id);
+  if (reqDelErr) return NextResponse.json({ error: reqDelErr.message }, { status: 500 });
+
+  const { error: dayDelErr } = await supabaseAdmin
+    .from("day_plans")
+    .delete()
+    .eq("week_plan_id", id);
+  if (dayDelErr) return NextResponse.json({ error: dayDelErr.message }, { status: 500 });
+
+  const { error: weekErr } = await supabaseAdmin
+    .from("week_plans")
+    .delete()
+    .eq("id", id);
+  if (weekErr) return NextResponse.json({ error: weekErr.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true });
+}
+
+

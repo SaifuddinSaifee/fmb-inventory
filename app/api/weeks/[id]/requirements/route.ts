@@ -80,11 +80,35 @@ export async function PUT(
     notes: r.notes ?? null,
   }));
 
-  const { error } = await supabaseAdmin
+  // Upsert current set of requirements
+  const { error: upsertError } = await supabaseAdmin
     .from("weekly_requirements")
     .upsert(rows, { onConflict: "week_plan_id,item_id" });
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (upsertError)
+    return NextResponse.json({ error: upsertError.message }, { status: 500 });
+
+  // Delete any requirements for this week that are NOT in the submitted list
+  const submittedItemIds = rows.map((r) => r.item_id);
+
+  const { data: existing, error: existingError } = await supabaseAdmin
+    .from("weekly_requirements")
+    .select("item_id")
+    .eq("week_plan_id", id);
+  if (existingError)
+    return NextResponse.json({ error: existingError.message }, { status: 500 });
+
+  const existingIds = (existing ?? []).map((r: { item_id: number }) => r.item_id);
+  const toDelete = existingIds.filter((eid) => !submittedItemIds.includes(eid));
+
+  if (toDelete.length > 0) {
+    const { error: deleteError } = await supabaseAdmin
+      .from("weekly_requirements")
+      .delete()
+      .eq("week_plan_id", id)
+      .in("item_id", toDelete);
+    if (deleteError)
+      return NextResponse.json({ error: deleteError.message }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true });
 }
