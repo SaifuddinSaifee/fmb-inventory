@@ -63,7 +63,12 @@ export default function WeekHeader({
           <p className="text-gray-600">Status: {weekPlan.status}</p>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <Button variant="danger" size="sm" icon={Trash2} onClick={handleDelete}>
+          <Button
+            variant="danger"
+            size="sm"
+            icon={Trash2}
+            onClick={handleDelete}
+          >
             Delete Week
           </Button>
         </div>
@@ -71,5 +76,3 @@ export default function WeekHeader({
     </div>
   );
 }
-
-

@@ -4,7 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Package, Plus, Save, Trash2 } from "lucide-react";
-import { EditableRequirementKey, Item, WeeklyRequirement } from "@/lib/weekTypes";
+import {
+  EditableRequirementKey,
+  Item,
+  WeeklyRequirement,
+} from "@/lib/weekTypes";
 
 export default function WeeklyRequirementsSection({
   items,
@@ -38,15 +42,28 @@ export default function WeeklyRequirementsSection({
       <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Package className="h-5 w-5 text-green-600" />
-          <h2 className="text-lg font-semibold text-gray-900">Weekly Requirements</h2>
+          <h2 className="text-lg font-semibold text-gray-900">
+            Weekly Requirements
+          </h2>
         </div>
         <div className="flex gap-2">
           {hasUnsavedChanges && (
-            <Button onClick={onSave} disabled={saving || hasUnselectedRequirement} size="sm" icon={Save}>
+            <Button
+              onClick={onSave}
+              disabled={saving || hasUnselectedRequirement}
+              size="sm"
+              icon={Save}
+            >
               {saving ? "Saving..." : "Save Changes"}
             </Button>
           )}
-          <Button onClick={onAdd} variant="success" size="sm" icon={Plus} disabled={hasUnselectedRequirement}>
+          <Button
+            onClick={onAdd}
+            variant="success"
+            size="sm"
+            icon={Plus}
+            disabled={hasUnselectedRequirement}
+          >
             Add Item
           </Button>
         </div>
@@ -58,15 +75,23 @@ export default function WeeklyRequirementsSection({
             <div
               key={req.id || index}
               className={`grid grid-cols-1 md:grid-cols-6 gap-4 p-4 border rounded-lg ${
-                isRowChanged(index, req) ? "border-blue-300 bg-blue-50/50" : "border-gray-200"
+                isRowChanged(index, req)
+                  ? "border-blue-300 bg-blue-50/50"
+                  : "border-gray-200"
               }`}
             >
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Item</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Item
+                </label>
                 <Select
                   value={req.item_id ?? ""}
                   onChange={(e) =>
-                    onUpdate(index, "item_id", e.target.value ? parseInt(e.target.value) : null)
+                    onUpdate(
+                      index,
+                      "item_id",
+                      e.target.value ? parseInt(e.target.value) : null
+                    )
                   }
                 >
                   <option value="" disabled>
@@ -80,26 +105,42 @@ export default function WeeklyRequirementsSection({
                 </Select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Unit
+                </label>
                 <Input
                   type="text"
-                  value={req.item_id ? items.find((i) => i.id === req.item_id)?.unit || "" : ""}
+                  value={
+                    req.item_id
+                      ? items.find((i) => i.id === req.item_id)?.unit || ""
+                      : ""
+                  }
                   disabled
                   className="bg-gray-50"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Required Qty</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Required Qty
+                </label>
                 <Input
                   type="number"
                   value={req.required_qty}
-                  onChange={(e) => onUpdate(index, "required_qty", parseFloat(e.target.value) || 0)}
+                  onChange={(e) =>
+                    onUpdate(
+                      index,
+                      "required_qty",
+                      parseFloat(e.target.value) || 0
+                    )
+                  }
                   min={0}
                   step={0.1}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Notes
+                </label>
                 <Input
                   type="text"
                   value={req.notes || ""}
@@ -108,7 +149,10 @@ export default function WeeklyRequirementsSection({
                 />
               </div>
               <div className="flex items-end">
-                <button onClick={() => onRemove(index)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                <button
+                  onClick={() => onRemove(index)}
+                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                >
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
@@ -119,7 +163,9 @@ export default function WeeklyRequirementsSection({
             <div className="text-center py-8 text-gray-500">
               <Package className="h-12 w-12 mx-auto mb-4 text-gray-300" />
               <p>No requirements added yet</p>
-              <p className="text-sm">Click &ldquo;Add Item&ldquo; to get started</p>
+              <p className="text-sm">
+                Click &ldquo;Add Item&ldquo; to get started
+              </p>
             </div>
           )}
         </div>
@@ -127,5 +173,3 @@ export default function WeeklyRequirementsSection({
     </div>
   );
 }
-
-

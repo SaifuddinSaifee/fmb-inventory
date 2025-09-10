@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ShoppingCart, Download, FileText } from "lucide-react";
 import { ShoppingListItem, WeekPlan } from "@/lib/weekTypes";
+import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 
 function groupShoppingByVendor(shoppingList: ShoppingListItem[]) {
   const map = new Map<string, ShoppingListItem[]>();
@@ -54,7 +55,9 @@ export default function ShoppingListSection({
     header.push("To Buy");
     header.push("Notes");
     lines.push(header.join(","));
-    const vendors = Array.from(byVendor.keys()).sort((a, b) => a.localeCompare(b));
+    const vendors = Array.from(byVendor.keys()).sort((a, b) =>
+      a.localeCompare(b)
+    );
     for (const vendor of vendors) {
       const rows = byVendor.get(vendor) || [];
       rows.sort((a, b) => a.item_name.localeCompare(b.item_name));
@@ -80,7 +83,9 @@ export default function ShoppingListSection({
 
   const exportShoppingListPdf = () => {
     const byVendor = groupShoppingByVendor(shoppingList);
-    const vendors = Array.from(byVendor.keys()).sort((a, b) => a.localeCompare(b));
+    const vendors = Array.from(byVendor.keys()).sort((a, b) =>
+      a.localeCompare(b)
+    );
     if (!weekPlan) return;
     const win = window.open("", "_blank");
     if (!win) return;
@@ -145,19 +150,33 @@ export default function ShoppingListSection({
           <div className="hidden md:flex items-center gap-3 text-sm text-gray-700">
             <Checkbox
               checked={includeOnHand}
-              onChange={(e) => setIncludeOnHand((e.target as HTMLInputElement).checked)}
+              onChange={(e) =>
+                setIncludeOnHand((e.target as HTMLInputElement).checked)
+              }
               label="Include On Hand"
             />
             <Checkbox
               checked={includeRequired}
-              onChange={(e) => setIncludeRequired((e.target as HTMLInputElement).checked)}
+              onChange={(e) =>
+                setIncludeRequired((e.target as HTMLInputElement).checked)
+              }
               label="Include Required"
             />
           </div>
-          <Button onClick={exportShoppingList} variant="purple" size="sm" icon={Download}>
+          <Button
+            onClick={exportShoppingList}
+            variant="purple"
+            size="sm"
+            icon={Download}
+          >
             Export CSV
           </Button>
-          <Button onClick={exportShoppingListPdf} variant="secondary" size="sm" icon={FileText}>
+          <Button
+            onClick={exportShoppingListPdf}
+            variant="secondary"
+            size="sm"
+            icon={FileText}
+          >
             Export PDF
           </Button>
         </div>
@@ -166,47 +185,50 @@ export default function ShoppingListSection({
       <div className="p-6">
         {shoppingList.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendor</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">On Hand</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Required</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">To Buy</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+            <Table>
+              <THead>
+                <TR>
+                  <TH>Vendor</TH>
+                  <TH>Item</TH>
+                  <TH>Unit</TH>
+                  <TH>On Hand</TH>
+                  <TH>Required</TH>
+                  <TH>To Buy</TH>
+                  <TH>Notes</TH>
+                </TR>
+              </THead>
+              <TBody>
                 {shoppingList.map((item, index) => (
-                  <tr key={index} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  <TR
+                    key={index}
+                    className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                  >
+                    <TD className="font-medium text-gray-900">
                       {item.vendor_name || "No Vendor"}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.item_name}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.unit}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.on_hand}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.required_qty}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    </TD>
+                    <TD className="text-gray-900">{item.item_name}</TD>
+                    <TD className="text-gray-500">{item.unit}</TD>
+                    <TD className="text-gray-500">{item.on_hand}</TD>
+                    <TD className="text-gray-500">{item.required_qty}</TD>
+                    <TD className="font-medium text-gray-900">
                       {item.to_buy > 0 ? item.to_buy : "-"}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.notes ?? ""}</td>
-                  </tr>
+                    </TD>
+                    <TD className="text-gray-500">{item.notes ?? ""}</TD>
+                  </TR>
                 ))}
-              </tbody>
-            </table>
+              </TBody>
+            </Table>
           </div>
         ) : (
           <div className="text-center py-8 text-gray-500">
             <ShoppingCart className="h-12 w-12 mx-auto mb-4 text-gray-300" />
             <p>No shopping list items</p>
-            <p className="text-sm">Add weekly requirements to generate shopping list</p>
+            <p className="text-sm">
+              Add weekly requirements to generate shopping list
+            </p>
           </div>
         )}
       </div>
     </div>
   );
 }
-
-

@@ -1,33 +1,63 @@
 import { ReactNode } from "react";
 
-export function Table({ children }: { children: ReactNode }) {
+type WithClassName = { className?: string };
+
+export function Table({
+  children,
+  className = "",
+}: { children: ReactNode } & WithClassName) {
   return (
-    <table className="min-w-full divide-y divide-gray-200">{children}</table>
+    <table className={`min-w-full divide-y divide-gray-200 ${className}`}>
+      {children}
+    </table>
   );
 }
 
-export function THead({ children }: { children: ReactNode }) {
-  return <thead className="bg-gray-50">{children}</thead>;
+export function THead({
+  children,
+  className = "",
+}: { children: ReactNode } & WithClassName) {
+  return <thead className={`bg-gray-50 ${className}`}>{children}</thead>;
 }
 
-export function TBody({ children }: { children: ReactNode }) {
-  return <tbody className="bg-white divide-y divide-gray-200">{children}</tbody>;
-}
-
-export function TR({ children }: { children: ReactNode }) {
-  return <tr>{children}</tr>;
-}
-
-export function TH({ children }: { children: ReactNode }) {
+export function TBody({
+  children,
+  className = "",
+}: { children: ReactNode } & WithClassName) {
   return (
-    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+    <tbody className={`bg-white divide-y divide-gray-200 ${className}`}>
+      {children}
+    </tbody>
+  );
+}
+
+export function TR({
+  children,
+  className = "",
+}: { children: ReactNode } & WithClassName) {
+  return <tr className={className}>{children}</tr>;
+}
+
+export function TH({
+  children,
+  className = "",
+}: { children: ReactNode } & WithClassName) {
+  return (
+    <th
+      className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${className}`}
+    >
       {children}
     </th>
   );
 }
 
-export function TD({ children }: { children: ReactNode }) {
-  return <td className="px-6 py-4 whitespace-nowrap text-sm">{children}</td>;
+export function TD({
+  children,
+  className = "",
+}: { children: ReactNode } & WithClassName) {
+  return (
+    <td className={`px-6 py-4 whitespace-nowrap text-sm ${className}`}>
+      {children}
+    </td>
+  );
 }
-
-

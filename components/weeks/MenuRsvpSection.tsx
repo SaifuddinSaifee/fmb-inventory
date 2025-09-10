@@ -12,6 +12,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
+import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 
 function formatDate(dateString: string) {
   const date = new Date(dateString);
@@ -97,38 +98,41 @@ export default function MenuRsvpSection({
       <div className="p-6">
         {!isEditing ? (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <Table>
+              <THead>
                 {dayPlanTable.getHeaderGroups().map((headerGroup) => (
-                  <tr key={headerGroup.id}>
+                  <TR key={headerGroup.id}>
                     {headerGroup.headers.map((header) => (
-                      <th
-                        key={header.id}
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
+                      <TH key={header.id}>
                         {header.isPlaceholder
                           ? null
                           : flexRender(
                               header.column.columnDef.header,
                               header.getContext()
                             )}
-                      </th>
+                      </TH>
                     ))}
-                  </tr>
+                  </TR>
                 ))}
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              </THead>
+              <TBody>
                 {dayPlanTable.getRowModel().rows.map((row, rIdx) => (
-                  <tr key={row.id} className={rIdx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                  <TR
+                    key={row.id}
+                    className={rIdx % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                  >
                     {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
+                      <TD key={cell.id} className="text-gray-900">
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TD>
                     ))}
-                  </tr>
+                  </TR>
                 ))}
-              </tbody>
-            </table>
+              </TBody>
+            </Table>
           </div>
         ) : (
           <div className="grid gap-4">
@@ -137,9 +141,13 @@ export default function MenuRsvpSection({
                 key={day.id}
                 className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg"
               >
-                <div className="font-medium text-gray-900">{formatDate(day.date)}</div>
+                <div className="font-medium text-gray-900">
+                  {formatDate(day.date)}
+                </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Menu</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Menu
+                  </label>
                   <Textarea
                     value={day.menu || ""}
                     onChange={(e) => onUpdateDay(index, "menu", e.target.value)}
@@ -148,11 +156,15 @@ export default function MenuRsvpSection({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">RSVP Count</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    RSVP Count
+                  </label>
                   <Input
                     type="number"
                     value={day.rsvp}
-                    onChange={(e) => onUpdateDay(index, "rsvp", parseInt(e.target.value) || 0)}
+                    onChange={(e) =>
+                      onUpdateDay(index, "rsvp", parseInt(e.target.value) || 0)
+                    }
                     min={0}
                   />
                 </div>
@@ -164,5 +176,3 @@ export default function MenuRsvpSection({
     </div>
   );
 }
-
-

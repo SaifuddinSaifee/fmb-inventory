@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
-import WeekHeader from "@/components/vendors/WeekHeader";
-import MenuRsvpSection from "@/components/vendors/MenuRsvpSection";
-import WeeklyRequirementsSection from "@/components/vendors/WeeklyRequirementsSection";
-import ShoppingListSection from "@/components/vendors/ShoppingListSection";
+import WeekHeader from "@/components/weeks/WeekHeader";
+import MenuRsvpSection from "@/components/weeks/MenuRsvpSection";
+import WeeklyRequirementsSection from "@/components/weeks/WeeklyRequirementsSection";
+import ShoppingListSection from "@/components/weeks/ShoppingListSection";
 import type {
   WeekPlan,
   DayPlan,
