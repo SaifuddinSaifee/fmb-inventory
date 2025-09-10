@@ -1,77 +1,22 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
-import {
-  Calendar,
-  ShoppingCart,
-  Package,
-  Save,
-  Download,
-  ArrowLeft,
-  Plus,
-  Trash2,
-  FileText,
-  Pencil,
-  X,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  ColumnDef,
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
-import type { UnitAbbreviation } from "@/lib/units";
-
-type WeekPlan = {
-  id: number;
-  start_date: string;
-  status: "Draft" | "Published" | "Closed";
-};
-
-type DayPlan = {
-  id: number;
-  week_plan_id: number;
-  date: string;
-  menu: string | null;
-  rsvp: number;
-};
-
-type Item = {
-  id: number;
-  name: string;
-  unit: UnitAbbreviation;
-  vendor_id: number | null;
-  vendor_name: string | null;
-  on_hand: number;
-};
-
-type WeeklyRequirement = {
-  id?: number;
-  week_plan_id: number;
-  item_id: number | null;
-  required_qty: number;
-  notes?: string | null;
-  item?: Item;
-};
-
-type EditableRequirementKey = "item_id" | "required_qty" | "notes";
-
-type ShoppingListItem = {
-  item_id: number;
-  item_name: string;
-  unit: UnitAbbreviation;
-  vendor_name: string | null;
-  on_hand: number;
-  required_qty: number;
-  to_buy: number;
-  notes?: string | null;
-};
+import { useParams } from "next/navigation";
+import WeekHeader from "@/components/vendors/WeekHeader";
+import MenuRsvpSection from "@/components/vendors/MenuRsvpSection";
+import WeeklyRequirementsSection from "@/components/vendors/WeeklyRequirementsSection";
+import ShoppingListSection from "@/components/vendors/ShoppingListSection";
+import type {
+  WeekPlan,
+  DayPlan,
+  WeeklyRequirement,
+  EditableRequirementKey,
+  Item,
+  ShoppingListItem,
+} from "@/lib/weekTypes";
 
 export default function WeekPlanPage() {
   const params = useParams();
-  const router = useRouter();
   const weekId = parseInt(params.id as string);
 
   const [weekPlan, setWeekPlan] = useState<WeekPlan | null>(null);
@@ -348,161 +293,9 @@ export default function WeekPlanPage() {
     setRequirements(updated);
   };
 
-  const groupShoppingByVendor = () => {
-    const map = new Map<string, typeof shoppingList>();
-    for (const row of shoppingList) {
-      const vendor = row.vendor_name || "No Vendor";
-      const arr = map.get(vendor) || [];
-      arr.push(row);
-      map.set(vendor, arr);
-    }
-    return map;
-  };
+  // Removed local shopping list export helpers (now in ShoppingListSection)
 
-  const exportShoppingList = () => {
-    const byVendor = groupShoppingByVendor();
-    const lines: string[] = [];
-    const header: string[] = ["Vendor", "Item"];
-    if (includeOnHand) header.push("On Hand");
-    if (includeRequired) header.push("Required");
-    header.push("To Buy");
-    header.push("Notes");
-    lines.push(header.join(","));
-    const vendors = Array.from(byVendor.keys()).sort((a, b) =>
-      a.localeCompare(b)
-    );
-    for (const vendor of vendors) {
-      const rows = byVendor.get(vendor) || [];
-      rows.sort((a, b) => a.item_name.localeCompare(b.item_name));
-      for (const r of rows) {
-        const notes = r.notes ? String(r.notes).replace(/\n/g, " ") : "";
-        const row: string[] = [vendor, r.item_name];
-        if (includeOnHand) row.push(`${r.on_hand} ${r.unit}`);
-        if (includeRequired) row.push(`${r.required_qty} ${r.unit}`);
-        row.push(`${r.to_buy} ${r.unit}`);
-        row.push(notes);
-        lines.push(row.join(","));
-      }
-    }
-    const csv = lines.join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `shopping-list-week-${weekId}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const exportShoppingListPdf = () => {
-    const byVendor = groupShoppingByVendor();
-    const vendors = Array.from(byVendor.keys()).sort((a, b) =>
-      a.localeCompare(b)
-    );
-    if (!weekPlan) return;
-    const win = window.open("", "_blank");
-    if (!win) return;
-    const styles = `
-      <style>
-        body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Noto Sans, 'Apple Color Emoji', 'Segoe UI Emoji'; padding: 24px; }
-        h1 { font-size: 20px; margin: 0 0 16px; }
-        .meta { font-size: 12px; color: #6b7280; margin: 0 0 16px; }
-        h2 { font-size: 16px; margin: 24px 0 8px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
-        th, td { border: 1px solid #e5e7eb; padding: 6px 8px; font-size: 12px; }
-        th { background: #f9fafb; text-align: left; }
-      </style>
-    `;
-    const range = getWeekRange(weekPlan.start_date);
-    const title = `FMB Shopping List | Week of ${range}`;
-    let html = `<html><head><title>${title}</title>${styles}</head><body>`;
-    const generatedAt = new Date().toLocaleString();
-    html += `<h1>${title}</h1>`;
-    html += `<div class="meta">Generated: ${generatedAt}</div>`;
-    for (const vendor of vendors) {
-      const rows = (byVendor.get(vendor) || [])
-        .slice()
-        .sort((a, b) => a.item_name.localeCompare(b.item_name));
-      html += `<h2>${vendor}</h2>`;
-      html += "<table><thead><tr>";
-      html += "<th>Item</th>";
-      if (includeOnHand) html += "<th>On Hand</th>";
-      if (includeRequired) html += "<th>Required</th>";
-      html += "<th>To Buy</th>";
-      html += "<th>Notes</th>";
-      html += "</tr></thead><tbody>";
-      for (const r of rows) {
-        html += "<tr>";
-        html += `<td>${r.item_name}</td>`;
-        if (includeOnHand) html += `<td>${r.on_hand} ${r.unit}</td>`;
-        if (includeRequired) html += `<td>${r.required_qty} ${r.unit}</td>`;
-        html += `<td>${r.to_buy} ${r.unit}</td>`;
-        html += `<td>${r.notes ?? ""}</td>`;
-        html += "</tr>";
-      }
-      html += "</tbody></table>";
-    }
-    html += "</body></html>";
-    win.document.open();
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    setTimeout(() => {
-      win.print();
-    }, 250);
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      weekday: "long",
-      month: "short",
-      day: "numeric",
-    });
-  };
-
-  const dayPlanColumns = useMemo<ColumnDef<DayPlan>[]>(
-    () => [
-      {
-        header: "Date",
-        accessorFn: (row) => formatDate(row.date),
-      },
-      {
-        header: "Menu",
-        accessorKey: "menu",
-        cell: ({ getValue }) => {
-          const value = getValue<string | null>();
-          return value ? value : "";
-        },
-      },
-      {
-        header: "RSVP",
-        accessorKey: "rsvp",
-      },
-    ],
-    []
-  );
-
-  const dayPlanTable = useReactTable({
-    data: dayPlans,
-    columns: dayPlanColumns,
-    getCoreRowModel: getCoreRowModel(),
-  });
-
-  const getWeekRange = (startDate: string) => {
-    const start = new Date(startDate);
-    const end = new Date(start);
-    end.setDate(start.getDate() + 6);
-
-    return `${start.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    })} - ${end.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    })}`;
-  };
+  // Section helpers moved into components
 
   if (loading) {
     return (
@@ -526,441 +319,43 @@ export default function WeekPlanPage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-4 mb-4">
-          <button
-            onClick={() => router.push("/")}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              Week of {getWeekRange(weekPlan.start_date)}
-            </h1>
-            <p className="text-gray-600">Status: {weekPlan.status}</p>
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            <Button
-              variant="danger"
-              size="sm"
-              icon={Trash2}
-              onClick={async () => {
-                const confirmed = window.confirm(
-                  "Delete this week? This will remove its days and requirements."
-                );
-                if (!confirmed) return;
-                try {
-                  const res = await fetch(`/api/weeks/${weekId}`, { method: "DELETE" });
-                  if (res.ok) {
-                    router.push("/");
-                  } else {
-                    const body = await res.json().catch(() => ({}));
-                    window.alert(body.error || "Failed to delete week");
-                  }
-                } catch (e) {
-                  console.error(e);
-                  window.alert("Failed to delete week");
-                }
-              }}
-            >
-              Delete Week
-            </Button>
-          </div>
-        </div>
-      </div>
+      <WeekHeader weekId={weekId} weekPlan={weekPlan} />
 
       <div className="space-y-8">
-        {/* Menu & RSVP Section */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-blue-600" />
-              <h2 className="text-lg font-semibold text-gray-900">
-                Menu & RSVP
-              </h2>
-            </div>
-            {!isEditingMenu ? (
-              <Button onClick={handleEditMenuClick} size="sm" icon={Pencil}>
-                Edit
-              </Button>
-            ) : (
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleSaveMenu}
-                  disabled={saving}
-                  icon={Save}
-                  size="sm"
-                >
-                  {saving ? "Saving..." : "Save"}
-                </Button>
-                <Button
-                  onClick={handleCancelMenuEdit}
-                  variant="secondary"
-                  size="sm"
-                  icon={X}
-                >
-                  Cancel
-                </Button>
-              </div>
-            )}
-          </div>
+        <MenuRsvpSection
+          dayPlans={dayPlans}
+          isEditing={isEditingMenu}
+          saving={saving}
+          onEdit={handleEditMenuClick}
+          onCancel={handleCancelMenuEdit}
+          onSave={handleSaveMenu}
+          onUpdateDay={updateDayPlan}
+        />
 
-          <div className="p-6">
-            {!isEditingMenu ? (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    {dayPlanTable.getHeaderGroups().map((headerGroup) => (
-                      <tr key={headerGroup.id}>
-                        {headerGroup.headers.map((header) => (
-                          <th
-                            key={header.id}
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                          >
-                            {header.isPlaceholder
-                              ? null
-                              : flexRender(
-                                  header.column.columnDef.header,
-                                  header.getContext()
-                                )}
-                          </th>
-                        ))}
-                      </tr>
-                    ))}
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {dayPlanTable.getRowModel().rows.map((row, rIdx) => (
-                      <tr
-                        key={row.id}
-                        className={rIdx % 2 === 0 ? "bg-white" : "bg-gray-50"}
-                      >
-                        {row.getVisibleCells().map((cell) => (
-                          <td
-                            key={cell.id}
-                            className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
-                          >
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext()
-                            )}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="grid gap-4">
-                {dayPlans.map((day, index) => (
-                  <div
-                    key={day.id}
-                    className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg"
-                  >
-                    <div className="font-medium text-gray-900">
-                      {formatDate(day.date)}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Menu
-                      </label>
-                      <textarea
-                        value={day.menu || ""}
-                        onChange={(e) =>
-                          updateDayPlan(index, "menu", e.target.value)
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        rows={2}
-                        placeholder="Enter menu for this day..."
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        RSVP Count
-                      </label>
-                      <input
-                        type="number"
-                        value={day.rsvp}
-                        onChange={(e) =>
-                          updateDayPlan(
-                            index,
-                            "rsvp",
-                            parseInt(e.target.value) || 0
-                          )
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        min="0"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+        <WeeklyRequirementsSection
+          items={items}
+          requirements={requirements}
+          hasUnsavedChanges={hasUnsavedChanges}
+          hasUnselectedRequirement={hasUnselectedRequirement}
+          saving={saving}
+          onSave={saveRequirements}
+          onAdd={addRequirement}
+          onRemove={removeRequirement}
+          onUpdate={updateRequirement}
+          isRowChanged={(index, req) =>
+            getChangedRequirements().has(index) ||
+            (typeof req.id === "number" && !originalRequirements.some((orig) => orig.id === req.id))
+          }
+        />
 
-        {/* Weekly Requirements Section */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Package className="h-5 w-5 text-green-600" />
-              <h2 className="text-lg font-semibold text-gray-900">
-                Weekly Requirements
-              </h2>
-            </div>
-            <div className="flex gap-2">
-              {hasUnsavedChanges && (
-                <Button
-                  onClick={saveRequirements}
-                  disabled={saving || hasUnselectedRequirement}
-                  size="sm"
-                  icon={Save}
-                >
-                  {saving ? "Saving..." : "Save Changes"}
-                </Button>
-              )}
-              <Button
-                onClick={addRequirement}
-                variant="success"
-                size="sm"
-                icon={Plus}
-                disabled={hasUnselectedRequirement}
-              >
-                Add Item
-              </Button>
-            </div>
-          </div>
-
-          <div className="p-6">
-            <div className="space-y-4">
-              {requirements.map((req, index) => (
-                <div
-                  key={req.id || index} // Use id if available, otherwise index
-                  className={`grid grid-cols-1 md:grid-cols-6 gap-4 p-4 border rounded-lg ${
-                    getChangedRequirements().has(index) ||
-                    (typeof req.id === 'number' && !originalRequirements.some(orig => orig.id === req.id))
-                      ? "border-blue-300 bg-blue-50/50"
-                      : "border-gray-200"
-                  }`}
-                >
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Item
-                    </label>
-                    <select
-                      value={req.item_id ?? ""}
-                      onChange={(e) =>
-                        updateRequirement(
-                          index,
-                          "item_id",
-                          e.target.value ? parseInt(e.target.value) : null
-                        )
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="" disabled>
-                        Select an item
-                      </option>
-                      {items.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Unit
-                    </label>
-                    <input
-                      type="text"
-                      value={
-                        req.item_id
-                          ? items.find((i) => i.id === req.item_id)?.unit || ""
-                          : ""
-                      }
-                      disabled
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Required Qty
-                    </label>
-                    <input
-                      type="number"
-                      value={req.required_qty}
-                      onChange={(e) =>
-                        updateRequirement(
-                          index,
-                          "required_qty",
-                          parseFloat(e.target.value) || 0
-                        )
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      min="0"
-                      step="0.1"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Notes
-                    </label>
-                    <input
-                      type="text"
-                      value={req.notes || ""}
-                      onChange={(e) =>
-                        updateRequirement(index, "notes", e.target.value)
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Optional notes"
-                    />
-                  </div>
-                  <div className="flex items-end">
-                    <button
-                      onClick={() => removeRequirement(index)}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-
-              {requirements.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  <Package className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <p>No requirements added yet</p>
-                  <p className="text-sm">
-                    Click &ldquo;Add Item&ldquo; to get started
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Shopping List Section */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <ShoppingCart className="h-5 w-5 text-purple-600" />
-              <h2 className="text-lg font-semibold text-gray-900">
-                Shopping List
-              </h2>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="hidden md:flex items-center gap-3 text-sm text-gray-700">
-                <label className="inline-flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={includeOnHand}
-                    onChange={(e) => setIncludeOnHand(e.target.checked)}
-                  />
-                  Include On Hand
-                </label>
-                <label className="inline-flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={includeRequired}
-                    onChange={(e) => setIncludeRequired(e.target.checked)}
-                  />
-                  Include Required
-                </label>
-              </div>
-              <Button
-                onClick={exportShoppingList}
-                variant="purple"
-                size="sm"
-                icon={Download}
-              >
-                Export CSV
-              </Button>
-              <Button
-                onClick={exportShoppingListPdf}
-                variant="secondary"
-                size="sm"
-                icon={FileText}
-              >
-                Export PDF
-              </Button>
-            </div>
-          </div>
-
-          <div className="p-6">
-            {shoppingList.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Vendor
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Item
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Unit
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        On Hand
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Required
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        To Buy
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Notes
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {shoppingList.map((item, index) => (
-                      <tr
-                        key={index}
-                        className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {item.vendor_name || "No Vendor"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {item.item_name}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {item.unit}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {item.on_hand}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {item.required_qty}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {item.to_buy > 0 ? item.to_buy : "-"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {item.notes ?? ""}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <ShoppingCart className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <p>No shopping list items</p>
-                <p className="text-sm">
-                  Add weekly requirements to generate shopping list
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
+        <ShoppingListSection
+          weekPlan={weekPlan}
+          shoppingList={shoppingList}
+          includeOnHand={includeOnHand}
+          includeRequired={includeRequired}
+          setIncludeOnHand={setIncludeOnHand}
+          setIncludeRequired={setIncludeRequired}
+        />
       </div>
     </div>
   );
