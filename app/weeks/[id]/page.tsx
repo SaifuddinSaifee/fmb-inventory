@@ -6,6 +6,7 @@ import WeekHeader from "@/components/weeks/WeekHeader";
 import MenuRsvpSection from "@/components/weeks/MenuRsvpSection";
 import WeeklyRequirementsSection from "@/components/weeks/WeeklyRequirementsSection";
 import ShoppingListSection from "@/components/weeks/ShoppingListSection";
+import { Skeleton } from "@/components/ui/skeleton";
 import type {
   WeekPlan,
   DayPlan,
@@ -299,9 +300,76 @@ export default function WeekPlanPage() {
 
   if (loading) {
     return (
-      <div className="p-8">
-        <div className="text-center">
-          <p className="text-gray-500">Loading week plan...</p>
+      <div className="p-8 max-w-7xl mx-auto space-y-8">
+        {/* Header skeleton */}
+        <div>
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="mt-2 h-4 w-80" />
+        </div>
+
+        {/* Menu & RSVP section skeleton */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="mb-4">
+            <Skeleton className="h-6 w-48" />
+          </div>
+          <div className="space-y-3">
+            {Array.from({ length: 7 }).map((_, i) => (
+              <div key={`menu-skel-${i}`} className="flex items-center justify-between gap-4">
+                <Skeleton className="h-4 w-40" />
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-4 w-56" />
+                  <Skeleton className="h-8 w-20" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Weekly requirements section skeleton */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <Skeleton className="h-6 w-56" />
+            <div className="flex gap-2">
+              <Skeleton className="h-9 w-24" />
+              <Skeleton className="h-9 w-24" />
+            </div>
+          </div>
+          <div className="space-y-3">
+            {/* Table header row */}
+            <div className="grid grid-cols-12 gap-4">
+              <Skeleton className="h-4 col-span-5" />
+              <Skeleton className="h-4 col-span-2" />
+              <Skeleton className="h-4 col-span-3" />
+              <Skeleton className="h-4 col-span-2" />
+            </div>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={`req-skel-${i}`} className="grid grid-cols-12 gap-4">
+                <Skeleton className="h-5 col-span-5" />
+                <Skeleton className="h-5 col-span-2" />
+                <Skeleton className="h-5 col-span-3" />
+                <Skeleton className="h-8 col-span-2" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Shopping list section skeleton */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <Skeleton className="h-6 w-56" />
+            <div className="flex gap-3">
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="h-4 w-28" />
+            </div>
+          </div>
+          <div className="space-y-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={`shop-skel-${i}`} className="flex items-center justify-between">
+                <Skeleton className="h-5 w-64" />
+                <Skeleton className="h-5 w-24" />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );

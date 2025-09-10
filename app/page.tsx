@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Plus, Calendar, Clock, CheckCircle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type WeekPlan = {
   id: number;
@@ -129,8 +130,23 @@ export default function Dashboard() {
         </div>
 
         {loading ? (
-          <div className="p-8 text-center text-gray-500">
-            Loading week plans...
+          <div className="divide-y divide-gray-200">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={`week-skel-${i}`} className="px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="flex-shrink-0">
+                      <Skeleton className="h-4 w-4 rounded-full" />
+                    </div>
+                    <div>
+                      <Skeleton className="h-5 w-64" />
+                      <Skeleton className="mt-2 h-4 w-40" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-6 w-20 rounded-full" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : weeks.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
@@ -186,7 +202,7 @@ export default function Dashboard() {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-500">Total Weeks</p>
               <p className="text-2xl font-semibold text-gray-900">
-                {weeks.length}
+                {loading ? <Skeleton className="h-7 w-12" /> : weeks.length}
               </p>
             </div>
           </div>
@@ -200,7 +216,11 @@ export default function Dashboard() {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-500">Draft Plans</p>
               <p className="text-2xl font-semibold text-gray-900">
-                {weeks.filter((w) => w.status === "Draft").length}
+                {loading ? (
+                  <Skeleton className="h-7 w-12" />
+                ) : (
+                  weeks.filter((w) => w.status === "Draft").length
+                )}
               </p>
             </div>
           </div>
@@ -214,7 +234,11 @@ export default function Dashboard() {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-500">Completed</p>
               <p className="text-2xl font-semibold text-gray-900">
-                {weeks.filter((w) => w.status === "Closed").length}
+                {loading ? (
+                  <Skeleton className="h-7 w-12" />
+                ) : (
+                  weeks.filter((w) => w.status === "Closed").length
+                )}
               </p>
             </div>
           </div>
